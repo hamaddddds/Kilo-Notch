@@ -19,7 +19,9 @@ public class PhotoPage : UserControl
     const int Shots = 3;
 
     readonly Camera _cam = new();
-    readonly Image _live = new() { Stretch = Stretch.UniformToFill, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(-1, 1) };
+    // Centered, not the default Stretch: a frame wider than the box would otherwise be pinned to the left,
+    // and the mirror (which flips around the whole frame) would slide it right, leaving a gap on the left.
+    readonly Image _live = new() { Stretch = Stretch.UniformToFill, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(-1, 1) };
     readonly TextBlock _count = new() { FontSize = 52, FontWeight = FontWeights.Bold, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Opacity = 0, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(), Effect = new DropShadowEffect { BlurRadius = 10, ShadowDepth = 0, Opacity = 0.6, RenderingBias = RenderingBias.Performance } };
     readonly Border _flash = new() { Background = Brushes.White, Opacity = 0, IsHitTestVisible = false };
     readonly StackPanel _hint = new() { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };

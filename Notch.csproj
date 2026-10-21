@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>KiloNotch</AssemblyName>
     <Product>Kilo Notch</Product>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <ApplicationIcon>Assets\KiloNotch.ico</ApplicationIcon>
 
     <!-- light on memory: one GC thread, a heap that compacts sooner, no satellite resources -->
