@@ -237,6 +237,22 @@ h1 em{font-style:normal;background:linear-gradient(90deg,var(--a),var(--b));-web
 .seg button{font:inherit;font-size:12px;color:var(--muted);background:none;border:0;padding:5px 11px;border-radius:7px;cursor:pointer}
 .seg button.on{background:linear-gradient(90deg,var(--a),var(--b));color:#fff}
 
+/* android */
+.phone{position:relative;width:min(340px,100%);height:210px;margin:34px auto 0;border-radius:34px 34px 0 0;border:1px solid var(--line);border-bottom:0;overflow:hidden;
+  background:radial-gradient(70% 80% at 30% 100%,color-mix(in srgb,var(--a) 55%,#000),transparent 70%),linear-gradient(180deg,#141a33,#1b1430)}
+.phone-top{display:flex;justify-content:center;padding-top:12px}
+.pisland{display:flex;align-items:center;gap:9px;height:32px;padding:0 15px;border-radius:16px;background:#000;
+  box-shadow:inset 0 -10px 16px -10px color-mix(in srgb,var(--a) 80%,transparent)}
+.pisland .eye{width:7px;height:12px}
+.lens{width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#3a3f5c,#0b0b10 60%);box-shadow:0 0 0 2px #111}
+.phone-peek{position:absolute;left:12px;right:12px;top:58px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:24px;background:#000;
+  font-size:13px;line-height:1.35;animation:peekin 5s var(--spring) infinite}
+.phone-peek b{display:block;font-size:14px}.phone-peek .dim{display:block}
+.pav{width:40px;height:40px;border-radius:50%;flex:none;background:linear-gradient(135deg,#ffb36a,#ff5e7e)}
+@keyframes peekin{0%,8%{transform:translateY(-46px) scale(.4,.3);opacity:0}18%,80%{transform:none;opacity:1}92%,100%{transform:translateY(-46px) scale(.4,.3);opacity:0}}
+.steps{max-width:760px;margin:22px auto 0;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 22px;color:var(--muted);font-size:14px}
+.steps b{color:var(--ink)}.steps ol{margin:10px 0 0 18px}.steps li{margin-top:6px}
+
 /* sections */
 section{padding:84px 0 0}
 .sec-title{font-size:clamp(28px,4vw,42px);letter-spacing:-.03em;line-height:1.1;font-weight:720;text-align:center}
@@ -269,7 +285,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   <div class="wrap">
     <a class="brand" href="#"><img src="icon.png" alt="">Kilo Notch</a>
     <nav>
-      <a href="#preview">Preview</a><a href="#features">Features</a><a href="#light">Lightweight</a><a href="#faq">FAQ</a>
+      <a href="#preview">Preview</a><a href="#features">Features</a><a href="#android">Android</a><a href="#light">Lightweight</a><a href="#faq">FAQ</a>
       <a class="gh" href="https://github.com/hamaddddds/Kilo-Notch">GitHub</a>
     </nav>
   </div>
@@ -277,12 +293,14 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 
 <main>
 <div class="wrap hero">
-  <span class="pill"><i></i>For Windows 10 and 11</span>
+  <span class="pill"><i></i>For Windows and Android</span>
   <h1>A little island that <em>lives</em> at the top of your screen.</h1>
   <p class="lede">Kilo Notch turns the top edge of Windows into a notch that plays your music with word-synced lyrics, runs your focus timer, reminds you to drink, keeps files close and checks off your to-dos. And it has a face: Kilo dances to your songs, naps when you're away and runs a little photo booth.</p>
   <div class="cta">
     <a class="btn primary" href="https://github.com/hamaddddds/Kilo-Notch/releases/latest/download/KiloNotch.exe">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 20h16"/></svg>Download for Windows</a>
+    <a class="btn ghost" href="https://github.com/hamaddddds/Kilo-Notch/releases/latest/download/KiloNotch.apk">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 5h4"/></svg>Android (APK)</a>
     <a class="btn ghost" href="https://github.com/hamaddddds/Kilo-Notch">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>Source on GitHub</a>
   </div>
@@ -439,6 +457,31 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   </div>
 </section>
 
+<section id="android" class="wrap">
+  <h2 class="sec-title">Now on your phone, too.</h2>
+  <p class="sec-lede">Kilo Notch for Android turns the camera hole into a living island, like the one on newer iPhones, with Kilo's eyes on either side of the lens. Settings live in the app; long-press the island to get there.</p>
+  <div class="phone">
+    <div class="phone-top"><span class="pisland"><i class="eye"></i><span class="lens"></span><i class="eye"></i></span></div>
+    <div class="phone-peek"><span class="pav"></span><span><b>Mom</b><span class="dim">Dinner's ready, come down 🍜</span></span></div>
+  </div>
+  <div class="grid">
+    <div class="card"><span class="app" style="--c1:#b388ff;--c2:#6a3dff"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="8" rx="4"/><path d="M9 11v2M15 11v2"/></svg></span><h3>An island on your camera</h3><p>It sits right on the punch-hole and springs open when something happens. Tap to open it, swipe up to close, long-press for settings. Size and position are adjustable to fit any phone.</p></div>
+    <div class="card"><span class="app" style="--c1:#7aa8ff;--c2:#5b4bff"><svg viewBox="0 0 24 24"><path d="M18 16v-5a6 6 0 0 0-12 0v5l-2 2h16zM10 21h4"/></svg></span><h3>Every notification</h3><p>New messages pop open the island with the sender's photo; tap to jump into the chat. Respects Do Not Disturb, stays private on the lock screen, and any app can be muted.</p></div>
+    <div class="card"><span class="app" style="--c1:#ff7ab6;--c2:#b84bff"><svg viewBox="0 0 24 24"><path d="M9 18V6l11-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></span><h3>Music and timers, live</h3><p>Cover art and sound bars in the cover's colors, with seek and controls when you open it. Clock-app timers, stopwatches and calls keep counting right in the island.</p></div>
+    <div class="card"><span class="app" style="--c1:#6fd3ff;--c2:#2d7bff"><svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg></span><h3>Water reminders that show up</h3><p>Each reminder is an exact alarm: on time with the app closed, in battery saver and after a reboot. Tap Drink right in the island or the notification.</p></div>
+    <div class="card"><span class="app" style="--c1:#ff8a7a;--c2:#ff4b6e"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M10 2h4"/></svg></span><h3>Focus timer</h3><p>Pomodoro with a ring in the island and a countdown on your lock screen. It rings when time's up, even if Android closed the app.</p></div>
+    <div class="card"><span class="app" style="--c1:#9be15d;--c2:#00b3a4"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2M7 10v4M11 10v4"/></svg></span><h3>1 MB, no account</h3><p>Native Kotlin, nothing to sign up for, nothing sent anywhere. Kilo cheers when you plug in or drink, sulks when the battery's low, and sleeps at night.</p></div>
+  </div>
+  <div class="steps">
+    <b>Setting up takes a minute</b>
+    <ol>
+      <li>Download <code>KiloNotch.apk</code> and install it (allow installing from your browser if asked).</li>
+      <li>Open Kilo Notch and tap <b>Allow</b> on each step: the island, notifications &amp; music, reminders, keep running.</li>
+      <li>If a switch is greyed out, open <b>App info → ⋮ → Allow restricted settings</b> and try again. Android does this for apps installed from a file.</li>
+    </ol>
+  </div>
+</section>
+
 <section id="light" class="wrap">
   <h2 class="sec-title">Light enough to forget it's there.</h2>
   <p class="sec-lede">Native WPF, no browser engine inside. It only draws while something moves, and gives memory back to Windows while it rests.</p>
@@ -457,6 +500,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     <details><summary>Which music players work?</summary><p>Anything that shows up in Windows' own media controls: Spotify, Apple Music, Windows Media Player, and most players in Chrome, Edge and Firefox, including YouTube and YouTube Music.</p></details>
     <details><summary>Why does a song have no lyrics, or only line timing?</summary><p>Word-timed lyrics come from Better Lyrics' public cache. Songs it hasn't cached fall back to LRCLIB, a free community library that is usually line-synced; the notch then estimates each word's timing. Some newer or local songs aren't in either yet.</p></details>
     <details><summary>Why doesn't the focus page show my city?</summary><p>It needs Windows location for desktop apps: Settings → Privacy &amp; security → Location → "Let desktop apps access your location". You can switch the city off in Kilo Notch's settings.</p></details>
+    <details><summary>Is there an iPhone version?</summary><p>No. iOS doesn't let apps draw over other apps or read other apps' notifications, which is exactly what the island needs. The mobile version is Android only (Android 8 and newer).</p></details>
+    <details><summary>Why does the Android app ask for Accessibility?</summary><p>An accessibility overlay is the only kind of window Android lets an app draw above the status bar, right on the camera, and still take taps. Kilo Notch uses it only to draw the island; it doesn't read or control anything on your screen.</p></details>
     <details><summary>Where do photo booth strips go?</summary><p>To <code>Pictures\Kilo Booth</code> as PNGs. The camera turns on only after you press "Start camera" and switches off the moment the notch closes. If it says the camera is off, allow it under Settings → Privacy &amp; security → Camera → "Let desktop apps access your camera".</p></details>
     <details><summary>Does it slow down games?</summary><p>No. It steps aside for full-screen apps, games and presentations, and draws nothing while it's hidden or still.</p></details>
     <details><summary>How do I start it with Windows or quit it?</summary><p>Right-click the notch or its tray icon. "Start with Windows" and "Exit" are right there.</p></details>
@@ -469,6 +514,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     <p>Kilo Notch has no accounts and no analytics. Tasks, water log, shelf and settings live in one file in your user folder.</p>
     <p>When the lyrics view is open, the song's title, artist and length are sent to Better Lyrics and, if needed, LRCLIB to find lyrics. If "Show my city" is on, your position is rounded to about 1 km before OpenStreetMap's Nominatim turns it into a place name. Nothing else leaves your PC.</p>
     <p>The photo booth uses your camera only while you're on its page after pressing "Start camera". Photos are saved on your PC and never uploaded.</p>
+    <p>On Android, notifications and what's playing are read on the phone to show them in the island, and never leave it. The app has no internet permission at all.</p>
   </div>
 </section>
 </main>

@@ -5,7 +5,7 @@
 <p align="center">A living notch for Windows: music with word-synced lyrics, a focus timer, water reminders,<br>
 a file shelf and to-dos, tucked into a little island at the top of your screen.</p>
 
-<p align="center"><a href="https://hamaddddds.github.io/Kilo-Notch/"><b>Live preview</b></a> · <a href="https://github.com/hamaddddds/Kilo-Notch/releases/latest/download/KiloNotch.exe">Download</a></p>
+<p align="center"><a href="https://hamaddddds.github.io/Kilo-Notch/"><b>Live preview</b></a> · <a href="https://github.com/hamaddddds/Kilo-Notch/releases/latest/download/KiloNotch.exe">Windows</a> · <a href="https://github.com/hamaddddds/Kilo-Notch/releases/latest/download/KiloNotch.apk">Android</a></p>
 
 ## What's inside
 
@@ -20,6 +20,28 @@ a file shelf and to-dos, tucked into a little island at the top of your screen.<
 - **Photo booth**: Kilo winks like he's aiming the camera, counts down, takes three shots and prints a strip (Kilo, Film or Paper frame) under the notch. Copy it, or drag it into a chat. Saved to `Pictures\Kilo Booth`.
 - **Themes**: six gradient presets, hue / gradient width / vibrance / glow sliders, dark or light, automatic text contrast.
 
+## Android
+
+`android/` is Kilo Notch for phones: an island on the camera hole, with Kilo's eyes on either side of the lens.
+Native Kotlin and Jetpack Compose, ~1 MB, no internet permission.
+
+- **Notifications** pop open the island with the sender's photo; tap to open, swipe up to dismiss. Respects Do Not Disturb, private on the lock screen, per-app mute.
+- **Music**: cover and sound bars in the cover's colors; open it for seek and controls. Clock-app timers, stopwatches and calls keep counting in the island.
+- **Water reminders** are exact alarms: on time with the app closed, in Doze, after a reboot. "Drink" works right from the island or the notification.
+- **Focus timer** with a ring in the island and a lock-screen countdown; an alarm-clock alarm ends it.
+- **Kilo** blinks and glances around, cheers when you drink, finish a session or plug in, sulks when the battery's low or a glass is overdue, sleeps at night.
+- **Settings** only in the app (long-press the island): setup checklist, island size/position to fit your camera, colors, timer, water.
+
+The island is an accessibility overlay, the only window type Android allows above the status bar that still takes taps.
+It doesn't read the screen. Apps installed from an APK need *App info → ⋮ → Allow restricted settings* before
+Android lets you switch it (and notification access) on.
+
+Build (Android SDK with platform 37, JDK 17+):
+
+```
+cd android
+gradlew assembleRelease
+```
 ## Lightweight
 
 Native WPF, no browser engine. It draws only while something moves, and while collapsed it hands idle memory

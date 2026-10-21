@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kilo Notch</string>
+    <string name="island_label">Kilo Notch island</string>
+    <string name="island_desc">Lets Kilo Notch draw its island over the status bar, around your camera. It doesn\'t read or control anything on your screen.</string>
+</resources>
