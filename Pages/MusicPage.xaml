@@ -1,0 +1,80 @@
+<UserControl x:Class="Notch.MusicPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Notch">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="MainCol" Width="*"/>
+            <ColumnDefinition x:Name="LyricsCol" Width="0"/>
+        </Grid.ColumnDefinitions>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <DockPanel>
+                <Grid Width="60" Height="60" x:Name="ArtBox" RenderTransformOrigin="0.5,0.5">
+                    <Grid.RenderTransform><ScaleTransform/></Grid.RenderTransform>
+                    <Border CornerRadius="13" Background="{DynamicResource Surface}">
+                        <TextBlock Style="{StaticResource Ico}" Text="&#xE8D6;" FontSize="22" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource FgDim}"/>
+                    </Border>
+                    <Border x:Name="Art" CornerRadius="13" RenderOptions.BitmapScalingMode="HighQuality"/>
+                </Grid>
+                <!-- live audio visualizer, driven by the notch's frame loop while playing -->
+                <local:Wave x:Name="Viz" DockPanel.Dock="Right" Width="24" Height="20" Margin="10,0,0,0" VerticalAlignment="Center"
+                            Brush="{DynamicResource Accent}"/>
+                <StackPanel x:Name="TitleStack" VerticalAlignment="Center" Margin="14,0,0,0">
+                    <StackPanel.RenderTransform><TranslateTransform/></StackPanel.RenderTransform>
+                    <TextBlock x:Name="TitleText" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="ArtistText" Style="{StaticResource Dim}" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                </StackPanel>
+            </DockPanel>
+
+            <DockPanel Grid.Row="1" VerticalAlignment="Center">
+                <TextBlock x:Name="Elapsed" Style="{StaticResource Dim}" Width="40" VerticalAlignment="Center"/>
+                <TextBlock x:Name="Remaining" Style="{StaticResource Dim}" Width="44" TextAlignment="Right" VerticalAlignment="Center"
+                           DockPanel.Dock="Right"/>
+                <!-- render-transform only, so the bar glides at 60 fps without any layout work -->
+                <Grid x:Name="Bar" Height="18" Margin="6,0" Background="Transparent" Cursor="Hand"
+                      MouseEnter="BarEnter" MouseLeave="BarLeave"
+                      MouseLeftButtonDown="BarDown" MouseMove="BarMove" MouseLeftButtonUp="BarUp">
+                    <Grid x:Name="BarBody" Height="4" VerticalAlignment="Center" RenderTransformOrigin="0,0.5">
+                        <Grid.RenderTransform><ScaleTransform x:Name="BarThick"/></Grid.RenderTransform>
+                        <Border x:Name="BarTrack" CornerRadius="2" Background="{DynamicResource SurfaceHi}"/>
+                        <Border CornerRadius="2" Background="{DynamicResource Accent}" RenderTransformOrigin="0,0.5">
+                            <Border.RenderTransform><ScaleTransform x:Name="BarFill" ScaleX="0"/></Border.RenderTransform>
+                        </Border>
+                    </Grid>
+                    <Ellipse Width="12" Height="12" Fill="White" HorizontalAlignment="Left" VerticalAlignment="Center"
+                             Margin="-6,0,0,0" Opacity="0" x:Name="Knob" RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform x:Name="KnobScale" ScaleX="0.4" ScaleY="0.4"/>
+                                <TranslateTransform x:Name="KnobMove"/>
+                            </TransformGroup>
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+                </Grid>
+            </DockPanel>
+
+            <Grid Grid.Row="2">
+                <Button x:Name="LyricsBtn" Style="{StaticResource IconBtn}" Content="&#xE8BD;" HorizontalAlignment="Left"
+                        Padding="6,6" Click="ToggleLyrics"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button Style="{StaticResource IconBtn}" Content="&#xE892;" Click="Prev"/>
+                    <Button x:Name="PlayBtn" Style="{StaticResource IconBtn}" FontSize="20" Margin="6,0" Click="Play"/>
+                    <Button Style="{StaticResource IconBtn}" Content="&#xE893;" Click="Next"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <Border x:Name="LyricsPane" Grid.Column="1" Visibility="Collapsed" BorderThickness="1,0,0,0"
+                BorderBrush="{DynamicResource SurfaceHi}" Margin="18,4,0,4" Padding="18,0,0,0">
+            <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
+            <local:LyricsView x:Name="Lyr"/>
+        </Border>
+    </Grid>
+</UserControl>
