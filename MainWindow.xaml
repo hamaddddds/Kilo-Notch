@@ -42,32 +42,15 @@
             <Grid x:Name="RestingView" Width="150" Height="38" VerticalAlignment="Top" HorizontalAlignment="Center"
                   RenderTransformOrigin="0.5,0">
                 <Grid.RenderTransform><ScaleTransform/></Grid.RenderTransform>
-                <Grid x:Name="Eyes" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0">
-                    <Grid.RenderTransform>
-                        <TranslateTransform x:Name="Gaze"/>
-                    </Grid.RenderTransform>
-                    <Grid.Effect>
-                        <DropShadowEffect Color="White" BlurRadius="12" ShadowDepth="0" Opacity="0.8" RenderingBias="Performance"/>
-                    </Grid.Effect>
-                    <StackPanel x:Name="OpenEyes" Orientation="Horizontal" RenderTransformOrigin="0.5,0.5">
-                        <StackPanel.RenderTransform>
-                            <ScaleTransform x:Name="Blinker"/>
-                        </StackPanel.RenderTransform>
-                        <Border Width="9" Height="15" CornerRadius="4.5" Background="{DynamicResource Fg}" Margin="0,0,14,0"/>
-                        <Border Width="9" Height="15" CornerRadius="4.5" Background="{DynamicResource Fg}"/>
-                    </StackPanel>
-                    <StackPanel x:Name="HappyEyes" Orientation="Horizontal" Visibility="Collapsed">
-                        <Path Data="M0,8 Q5.5,-3 11,8" Stroke="{DynamicResource Fg}" StrokeThickness="3"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" Margin="0,0,12,0"/>
-                        <Path Data="M0,8 Q5.5,-3 11,8" Stroke="{DynamicResource Fg}" StrokeThickness="3"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                    </StackPanel>
-                </Grid>
-                <TextBlock x:Name="Zzz" Text="z" FontSize="11" FontWeight="Bold" HorizontalAlignment="Right"
-                           VerticalAlignment="Center" Margin="0,0,34,4" Visibility="Collapsed">
-                    <TextBlock.RenderTransform>
-                        <TranslateTransform x:Name="ZzzMove"/>
-                    </TextBlock.RenderTransform>
+                <local:Kilo x:Name="Face" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0"/>
+                <!-- notes that float up while Kilo dances -->
+                <TextBlock x:Name="NoteL" Text="&#x266A;" FontFamily="Segoe UI Symbol" FontSize="13" HorizontalAlignment="Left"
+                           VerticalAlignment="Center" Margin="34,0,0,0" Opacity="0">
+                    <TextBlock.RenderTransform><TranslateTransform/></TextBlock.RenderTransform>
+                </TextBlock>
+                <TextBlock x:Name="NoteR" Text="&#x266B;" FontFamily="Segoe UI Symbol" FontSize="13" HorizontalAlignment="Right"
+                           VerticalAlignment="Center" Margin="0,0,34,0" Opacity="0">
+                    <TextBlock.RenderTransform><TranslateTransform/></TextBlock.RenderTransform>
                 </TextBlock>
             </Grid>
 
@@ -131,6 +114,9 @@
                         HorizontalAlignment="Right" Margin="0,0,12,0" Click="PageNext"/>
                 <StackPanel x:Name="Dots" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
+
+            <!-- the photo booth's flash -->
+            <Border x:Name="FlashLayer" Background="White" Opacity="0" IsHitTestVisible="False"/>
         </Grid>
     </Grid>
 </Window>

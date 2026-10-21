@@ -19,9 +19,11 @@ public partial class MainWindow : Window
         OpenSize = new(500, 188), LyricsSize = new(680, 188);
     // One glow brush for the notch's whole life; its colors animate instead of being swapped.
     readonly LinearGradientBrush _glow = new() { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0), GradientStops = { new(Colors.Black, 0), new(Colors.Black, 1) } };
+    // the song's colors (seek bar, visualizers, dance notes), gliding the same way
+    readonly LinearGradientBrush _vibe = new() { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0), GradientStops = { new(Colors.White, 0), new(Colors.White, 1) } };
     const double Ear = 10; // width of the flared shoulders
     const int ShelfIndex = 3;
-    static readonly (string, string)[] Titles = { ("", ""), ("Pomodoro", ""), ("Water ", "Reminder"), ("Shelf", ""), ("Todo", "List") };
+    static readonly (string, string)[] Titles = { ("", ""), ("Pomodoro", ""), ("Water ", "Reminder"), ("Shelf", ""), ("Todo", "List"), ("Photo ", "Booth") };
     static readonly IEasingFunction EaseOut = new CubicEase { EasingMode = EasingMode.EaseOut };
     static readonly IEasingFunction Pop = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.45 };
 
@@ -36,16 +38,21 @@ public partial class MainWindow : Window
     // files hovering over the notch: how lit it is, the cursor x, and the drop wave's clock (-1 = none)
     readonly Spring _hov = new() { Epsilon = 0.002, Stiffness = 50, Damping = 14 };
     double _cursorX, _dropX, _dropT = -1;
+    // dancing: a hop on each beat, a sway that flips side every beat
+    readonly Spring _bob = new() { Stiffness = 320, Damping = 13 }, _tilt = new() { Stiffness = 120, Damping = 13 };
+    double _loud, _sinceBeat, _sway = 1;
+    int _beats;
     Size _base = RestingSize;
     bool _looping;
     TimeSpan _lastFrame;
 
     View _view = View.Resting;
     FrameworkElement? _shown;
-    bool _lyrics, _typing, _dozing, _dragInside;
-    int _page;
+    bool _lyrics, _typing, _dragInside, _dancing, _held, _wasPlaying;
+    int _page, _sleep, _water; // _sleep: 0 awake, 1 drowsy, 2 asleep
+    Mood _react;
     IntPtr _hwnd;
-    DateTime _today = DateTime.Today, _lastWheel;
+    DateTime _today = DateTime.Today, _lastWheel, _reactUntil, _lastOpen = DateTime.Now, _nextFidget = DateTime.Now.AddSeconds(40);
     double _phase, _level;
     readonly Random _rnd = new();
     readonly DispatcherTimer _beat = new() { Interval = TimeSpan.FromSeconds(1) };
@@ -55,14 +62,18 @@ public partial class MainWindow : Window
     readonly DispatcherTimer _dragLeave = new() { Interval = TimeSpan.FromMilliseconds(80) };
     readonly DispatcherTimer _peekEnd = new() { Interval = TimeSpan.FromSeconds(4) };
     readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromSeconds(3) };
-    readonly DispatcherTimer _hello = new() { Interval = TimeSpan.FromSeconds(1.6) };
+    readonly DispatcherTimer _moodEnd = new();
     readonly DispatcherTimer _trim = new() { Interval = TimeSpan.FromSeconds(45) }; // while collapsed, give memory back this often
 
     public MainWindow()
     {
         I = this;
         InitializeComponent();
-        _pages = new FrameworkElement[] { Music, new FocusPage(), new WaterPage(), _shelf, _todo };
+        _pages = new FrameworkElement[] { Music, new FocusPage(), new WaterPage(), _shelf, _todo, new PhotoPage() };
+        Music.Fill.Background = _vibe;
+        Music.Viz.Brush = _vibe;
+        ClosedWave.Brush = _vibe;
+        NoteL.Foreground = NoteR.Foreground = _vibe;
         for (int k = 0; k < _pages.Length; k++) Dots.Children.Add(Dot(k));
         Place();
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += (_, _) => Dispatcher.InvokeAsync(Place);
@@ -78,11 +89,19 @@ public partial class MainWindow : Window
         _dragLeave.Tick += (_, _) => { _dragLeave.Stop(); DragGone(); };
         _peekEnd.Tick += (_, _) => { _peekEnd.Stop(); if (!CursorInNotch()) Collapse(); };
         _blink.Tick += (_, _) => Blink();
-        _hello.Tick += (_, _) => { _hello.Stop(); HappyEyes.Visibility = Visibility.Collapsed; OpenEyes.Visibility = Visibility.Visible; };
+        _moodEnd.Tick += (_, _) => { _moodEnd.Stop(); UpdateFace(); };
         _trim.Tick += (_, _) => { if (_view != View.Open) Trim(heapToo: !_looping); };
 
         Theme.Changed += ApplyGlow;
-        Player.StateChanged += () => { Meter.Reset(); Refresh(); };
+        Player.StateChanged += () =>
+        {
+            Meter.Reset();
+            if (_wasPlaying && !Player.Playing) React(Mood.Sad, 3); // aww, the music stopped
+            _wasPlaying = Player.Playing;
+            Refresh();
+        };
+        _water = Water.Total;
+        Water.Changed += () => { if (Water.Total > _water) React(Mood.Happy, 4); _water = Water.Total; };
         Player.PropsChanged += () =>
         {
             ClosedArt.Background = Player.Art == null ? null : new ImageBrush(Player.Art) { Stretch = Stretch.UniformToFill };
@@ -92,11 +111,16 @@ public partial class MainWindow : Window
         Pomodoro.Finished += wasBreak =>
         {
             Sound.Chime();
+            React(Mood.Happy, 4);
             Peek(wasBreak ? "" : "", "Accent", 1, wasBreak ? "Break's over" : "Focus session done",
                 wasBreak ? "Ready for the next round?" : $"Take a {Store.D.Settings.BreakMin} min break");
         };
-        Power.Init(plugged => Peek(plugged ? "" : "", plugged ? "Good" : "FgDim", Power.Percent / 100.0,
-            plugged ? "Charging" : "On battery", plugged ? "Charger connected" : "Charger disconnected", $"{Power.Percent}%"));
+        Power.Init(plugged =>
+        {
+            if (plugged) React(Mood.Happy, 3);
+            Peek(plugged ? "" : "", plugged ? "Good" : "FgDim", Power.Percent / 100.0,
+            plugged ? "Charging" : "On battery", plugged ? "Charger connected" : "Charger disconnected", $"{Power.Percent}%");
+        });
         Headphones.Init((name, pct) =>
         {
             Meter.Reset();
@@ -163,8 +187,13 @@ public partial class MainWindow : Window
         {
             _gx.Step(dt);
             _gy.Step(dt);
-            Gaze.X = _gx.Value;
-            Gaze.Y = _gy.Value;
+            Face.Gaze.X = _gx.Value;
+            Face.Gaze.Y = _gy.Value;
+            busy = true;
+        }
+        if (DanceLive)
+        {
+            Dance(dt);
             busy = true;
         }
         if (WaveLive)
@@ -206,6 +235,40 @@ public partial class MainWindow : Window
 
     // the visualizers dance whenever music plays and one of them is on screen
     bool WaveLive => Player.Playing && Visibility == Visibility.Visible && (_view == View.Closed || _view == View.Open);
+    bool DanceLive => _dancing && _view == View.Resting && Visibility == Visibility.Visible;
+
+    // Kilo bops along: a hop on each beat (harder on loud ones), swaying to the other side every beat,
+    // a note floating up every other beat. Quiet stretches still get a slow sway so he never freezes.
+    void Dance(double dt)
+    {
+        var peak = Meter.Peak();
+        _loud += (peak - _loud) * Math.Min(1, dt * 3); // the song's running loudness
+        _sinceBeat += dt;
+        if ((peak > 0.05 && peak > _loud * 1.25 && _sinceBeat > 0.3) || _sinceBeat > 0.9)
+        {
+            _sinceBeat = 0;
+            _bob.Velocity = -55 - 60 * Math.Min(1, peak);
+            _sway = -_sway;
+            _tilt.Target = 9 * _sway;
+            if (++_beats % 2 == 0) Note(_sway > 0 ? NoteR : NoteL);
+        }
+        _bob.Step(dt);
+        _tilt.Step(dt);
+        Face.Bob.Y = _bob.Value;
+        Face.Bob.X = _tilt.Value * 0.35;
+        Face.Tilt.Angle = _tilt.Value;
+        Face.Gaze.X = _tilt.Value * 0.3; // looking toward the side he leans to
+    }
+
+    static void Note(TextBlock n)
+    {
+        var d = TimeSpan.FromMilliseconds(950);
+        ((TranslateTransform)n.RenderTransform).BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(6, -13, d) { EasingFunction = EaseOut });
+        var fade = new DoubleAnimationUsingKeyFrames { Duration = d };
+        fade.KeyFrames.Add(new LinearDoubleKeyFrame(1, KeyTime.FromPercent(0.2)));
+        fade.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(1)));
+        n.BeginAnimation(OpacityProperty, fade);
+    }
 
     void Reshape()
     {
@@ -247,6 +310,7 @@ public partial class MainWindow : Window
 
         var show = v switch { View.Resting => RestingView, View.Closed => ClosedView, View.Peek => PeekView, _ => OpenView };
         ShowView(show, grow, wasOpen && v == View.Open);
+        UpdateFace();
         ApplyGlow();
         UpdateTimers();
     }
@@ -278,9 +342,15 @@ public partial class MainWindow : Window
 
     public void Collapse(bool force = false)
     {
-        if (_typing || _dragInside) return;
+        if (_typing || _dragInside || _held) return;
         _peekEnd.Stop();
-        var rest = Store.D.Settings.Personality && !Player.Playing && !Pomodoro.Running;
+        var rest = Store.D.Settings.Personality && (_dancing || (!Player.Playing && !Pomodoro.Running));
+        if (!_dancing)
+        {
+            _bob.Value = _bob.Velocity = _tilt.Value = _tilt.Velocity = _tilt.Target = 0;
+            Face.Bob.X = Face.Bob.Y = Face.Tilt.Angle = 0;
+            Face.Gaze.X = _gx.Value;
+        }
         var v = rest ? View.Resting : View.Closed;
         if (v != _view || force) { Morph(rest ? RestingSize : ClosedSize, v); _trim.Stop(); _trim.Start(); }
         RefreshClosed();
@@ -304,6 +374,8 @@ public partial class MainWindow : Window
         _leave.Stop();
         _peekEnd.Stop();
         _trim.Stop();
+        if (DateTime.Now - _lastOpen > TimeSpan.FromMinutes(20)) React(Mood.Happy, 3); // missed you
+        _lastOpen = DateTime.Now;
         var size = _lyrics ? LyricsSize : OpenSize;
         if (_view == View.Open && OpenView.Width == size.Width) return;
         OpenView.Width = size.Width;
@@ -351,18 +423,17 @@ public partial class MainWindow : Window
     }
 
     // Colors glide instead of jumping, and the music view keeps one glow whether or not lyrics are open.
+    // The seek bar, visualizers and the music view's glow all wear the song's colors.
     void ApplyGlow()
     {
         var s = Store.D.Settings;
-        Color a = Theme.A, b = Theme.B;
-        if (s.AlbumGlow && _view == View.Open && _page == 0 && Player.ArtColor is Color c)
-        {
-            a = c;
-            b = Color.FromRgb((byte)((c.R + Theme.B.R) / 2), (byte)((c.G + Theme.B.G) / 2), (byte)((c.B + Theme.B.B) / 2));
-        }
+        var (va, vb) = Player.Vibe;
+        var (a, b) = _view == View.Open && _page == 0 ? (va, vb) : (Theme.A, Theme.B);
         var d = TimeSpan.FromMilliseconds(500);
         _glow.GradientStops[0].BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(a, d));
         _glow.GradientStops[1].BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(b, d));
+        _vibe.GradientStops[0].BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(va, TimeSpan.FromMilliseconds(700)));
+        _vibe.GradientStops[1].BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(vb, TimeSpan.FromMilliseconds(700)));
         var f = _view switch { View.Resting => 1.0, View.Peek => 0.55, View.Open => 0.6, _ => 0.25 };
         // a very bright glow (white covers, Mono theme) would wash out the white text above it
         var bright = (Theme.Luma(a) + Theme.Luma(b)) / 2;
@@ -435,26 +506,91 @@ public partial class MainWindow : Window
             if (Visibility != want) { Visibility = want; UpdateTimers(); }
         }
 
-        // the eyes doze off while you're away and say hi when you're back
+        // While you're away: with music on Kilo starts dancing, otherwise he gets drowsy and falls asleep.
+        // Any input wakes him up with a happy hello.
         var idle = IdleTime();
-        if (!_dozing && idle > TimeSpan.FromSeconds(90)) Doze(true);
-        else if (_dozing && idle < TimeSpan.FromSeconds(2)) { Doze(false); SayHello(); }
+        var personality = Store.D.Settings.Personality && Visibility == Visibility.Visible;
+        var dance = personality && Player.Playing && !Pomodoro.Running && idle > TimeSpan.FromSeconds(20);
+        if (dance != _dancing)
+        {
+            _dancing = dance;
+            if (_view is View.Resting or View.Closed) Collapse();
+        }
+        var sleep = Player.Playing ? 0 : idle > TimeSpan.FromMinutes(5) ? 2 : idle > TimeSpan.FromSeconds(90) ? 1 : 0;
+        if (sleep != _sleep)
+        {
+            var woke = sleep < _sleep;
+            _sleep = sleep;
+            UpdateFace();
+            UpdateTimers();
+            if (woke) React(Mood.Happy, 1.6);
+        }
+        // now and then, a little mood of his own: a happy hum, or a sulk when you haven't come by in a while
+        if (now >= _nextFidget)
+        {
+            _nextFidget = now.AddSeconds(30 + _rnd.Next(40));
+            if (_sleep == 0 && !_dancing)
+                React(now - _lastOpen > TimeSpan.FromMinutes(20) && _rnd.Next(2) == 0 ? Mood.Sad : Mood.Happy, 1.8);
+        }
     }
 
     void UpdateTimers()
     {
-        var resting = _view == View.Resting && Visibility == Visibility.Visible;
-        _gazePoll.IsEnabled = resting && !_dozing;
-        _blink.IsEnabled = resting && !_dozing;
-        if (WaveLive) StartLoop();
+        var watching = _view == View.Resting && Visibility == Visibility.Visible && _sleep == 0 && !_dancing;
+        _gazePoll.IsEnabled = watching;
+        _blink.IsEnabled = watching;
+        if (WaveLive || DanceLive) StartLoop();
+    }
+
+    // What Kilo feels right now: sleep beats everything, then a passing reaction, then dancing,
+    // then worries that last (battery nearly empty, a glass of water overdue).
+    void UpdateFace()
+    {
+        var worried = (Power.HasBattery && !Power.Plugged && Power.Percent <= 20) || Water.Thirsty;
+        Face.Mood = _sleep == 2 ? Mood.Asleep : _sleep == 1 ? Mood.Drowsy
+            : DateTime.Now < _reactUntil ? _react
+            : _dancing ? Mood.Happy
+            : worried ? Mood.Sad : Mood.Normal;
+    }
+
+    /// A short-lived mood: shown now if Kilo is on screen, or when the notch next settles back to him.
+    public void React(Mood m, double seconds)
+    {
+        _react = m;
+        _reactUntil = DateTime.Now.AddSeconds(seconds);
+        _moodEnd.Stop();
+        _moodEnd.Interval = TimeSpan.FromSeconds(seconds);
+        _moodEnd.Start();
+        UpdateFace();
+        if (m == Mood.Happy && _view == View.Resting && _sleep == 0)
+        {
+            _gy.Velocity = -60; // a little hop
+            StartLoop();
+        }
+    }
+
+    /// Keeps the notch open (photo booth countdown) even if the cursor wanders off.
+    public void Hold(bool on)
+    {
+        _held = on;
+        if (!on && !CursorInNotch()) _leave.Start();
+    }
+
+    public void Flash()
+    {
+        var a = new DoubleAnimationUsingKeyFrames();
+        a.KeyFrames.Add(new LinearDoubleKeyFrame(0.9, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(40))));
+        a.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(480)), EaseOut));
+        FlashLayer.BeginAnimation(OpacityProperty, a);
     }
 
     // Cheap cursor poll; the spring only runs (and only redraws) while the eyes are actually moving.
     void PollGaze()
     {
-        if (!Eyes.IsVisible) return;
+        var eyes = Face.Eyes;
+        if (!eyes.IsVisible) return;
         GetCursorPos(out var p);
-        var c = Eyes.PointToScreen(new Point(Eyes.ActualWidth / 2, Eyes.ActualHeight / 2));
+        var c = eyes.PointToScreen(new Point(eyes.ActualWidth / 2, eyes.ActualHeight / 2));
         var tx = Math.Clamp((p.X - c.X) / 70, -5, 5);
         var ty = Math.Clamp((p.Y - c.Y) / 150, -1.5, 2.5);
         if (Math.Abs(tx - _gx.Target) + Math.Abs(ty - _gy.Target) < 0.05) return;
@@ -468,45 +604,7 @@ public partial class MainWindow : Window
     void Blink()
     {
         _blink.Interval = TimeSpan.FromSeconds(2 + _rnd.NextDouble() * 4);
-        var a = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
-        a.KeyFrames.Add(new EasingDoubleKeyFrame(0.1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(80)), EaseOut));
-        a.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(190)), EaseOut));
-        if (_rnd.Next(5) == 0) // sometimes a double blink
-        {
-            a.KeyFrames.Add(new EasingDoubleKeyFrame(0.1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(270)), EaseOut));
-            a.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(380)), EaseOut));
-        }
-        Blinker.BeginAnimation(ScaleTransform.ScaleYProperty, a);
-    }
-
-    void Doze(bool on)
-    {
-        _dozing = on;
-        if (on)
-        {
-            Blinker.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.12, TimeSpan.FromMilliseconds(700)) { EasingFunction = EaseOut });
-            Zzz.Visibility = Visibility.Visible;
-            ZzzMove.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(4, -8, TimeSpan.FromSeconds(1.8)) { RepeatBehavior = new RepeatBehavior(3) });
-            Zzz.BeginAnimation(OpacityProperty, new DoubleAnimation(1, 0, TimeSpan.FromSeconds(1.8)) { RepeatBehavior = new RepeatBehavior(3) });
-        }
-        else
-        {
-            Blinker.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-            ZzzMove.BeginAnimation(TranslateTransform.YProperty, null);
-            Zzz.BeginAnimation(OpacityProperty, null);
-            Zzz.Visibility = Visibility.Collapsed;
-        }
-        UpdateTimers();
-    }
-
-    void SayHello()
-    {
-        if (_view != View.Resting) return;
-        OpenEyes.Visibility = Visibility.Collapsed;
-        HappyEyes.Visibility = Visibility.Visible;
-        _gy.Velocity = -60; // a little hop
-        StartLoop();
-        _hello.Start();
+        Face.Blink(twice: _rnd.Next(5) == 0);
     }
 
     // ---------- pages ----------
@@ -662,6 +760,7 @@ public partial class MainWindow : Window
         if (e.Data.GetData(DataFormats.FileDrop) is string[] files)
         {
             _shelf.DropFiles(files);
+            React(Mood.Happy, 3); // yum
             // the light swells, a wave rolls out along the bottom, and the notch gulps: wider, then springs back
             _dropX = e.GetPosition(Root).X;
             _dropT = 0;

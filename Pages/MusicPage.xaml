@@ -44,7 +44,7 @@
                     <Grid x:Name="BarBody" Height="4" VerticalAlignment="Center" RenderTransformOrigin="0,0.5">
                         <Grid.RenderTransform><ScaleTransform x:Name="BarThick"/></Grid.RenderTransform>
                         <Border x:Name="BarTrack" CornerRadius="2" Background="{DynamicResource SurfaceHi}"/>
-                        <Border CornerRadius="2" Background="{DynamicResource Accent}" RenderTransformOrigin="0,0.5">
+                        <Border x:Name="Fill" CornerRadius="2" Background="{DynamicResource Accent}" RenderTransformOrigin="0,0.5">
                             <Border.RenderTransform><ScaleTransform x:Name="BarFill" ScaleX="0"/></Border.RenderTransform>
                         </Border>
                     </Grid>

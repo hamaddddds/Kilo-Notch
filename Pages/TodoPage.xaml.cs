@@ -91,6 +91,7 @@ public partial class TodoPage : UserControl
             if (_editMode) return;
             t.Done = !t.Done;
             t.DoneAt = t.Done ? DateTime.Now : null;
+            if (t.Done) MainWindow.I.React(Mood.Happy, 3);
             _toggled = t;
             Store.Save();
             Refresh();

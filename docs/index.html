@@ -83,6 +83,51 @@ h1 em{font-style:normal;background:linear-gradient(90deg,var(--a),var(--b));-web
 .eye{width:9px;height:15px;border-radius:5px;background:var(--fg);box-shadow:0 0 10px rgba(255,255,255,.8);animation:blink 4.2s infinite;transform-origin:center}
 @keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
 
+/* Kilo's other faces: dancing, asleep, moods (and the photo booth's wink) */
+.l-kilo{width:150px;height:38px;display:flex;justify-content:center;align-items:center;overflow:hidden}
+.kwrap{display:flex;margin-top:2px}
+.kface{width:34px;height:16px;overflow:visible;fill:none;stroke:var(--fg);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 4px rgba(255,255,255,.8))}
+.kface rect{fill:var(--fg);stroke:none}.kface .tear{fill:#8fd3ff;stroke:none;animation:tear 1.6s ease-in infinite}
+@keyframes tear{0%{transform:translateY(-3px);opacity:0}25%{opacity:1}100%{transform:translateY(5px);opacity:0}}
+.notch[data-s="dance"] .kwrap{animation:bop .5s ease-in-out infinite alternate}
+@keyframes bop{0%{transform:translate(-3px,0) rotate(-9deg)}50%{transform:translate(0,-4px) rotate(0)}100%{transform:translate(3px,0) rotate(9deg)}}
+.note,.zz{position:absolute;opacity:0;font-weight:700}
+.note{top:12px;font-size:13px;background:linear-gradient(var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
+.note.l{left:34px}.note.r{right:34px}
+.notch[data-s="dance"] .note{animation:note 2s ease-out infinite}.notch[data-s="dance"] .note.r{animation-delay:1s}
+@keyframes note{0%{transform:translateY(6px);opacity:0}20%{opacity:1}100%{transform:translateY(-14px);opacity:0}}
+.zz{right:46px;top:8px;font-size:11px}
+.notch[data-s="sleep"] .zz{animation:zz 2.2s ease-in infinite}
+@keyframes zz{0%{transform:translateY(4px);opacity:0}20%{opacity:1}100%{transform:translateY(-9px);opacity:0}}
+.notch[data-s="dance"] .glow,.notch[data-s="mood"] .glow{opacity:.85}.notch[data-s="sleep"] .glow{opacity:.4}
+
+/* photo booth */
+:root{--me:radial-gradient(circle at 50% 40%,#e6c6b2 0 17%,transparent 18%),radial-gradient(ellipse 40% 30% at 50% 102%,var(--a) 0 97%,transparent 100%),radial-gradient(120% 90% at 30% 20%,#3a3f5c,#141522)}
+.mirror{width:170px;height:124px;border-radius:14px;flex:none;position:relative;overflow:hidden;background:var(--me)}
+.count{position:absolute;inset:0;display:grid;place-items:center;font-size:52px;font-weight:800;color:#fff;text-shadow:0 0 12px rgba(0,0,0,.6);opacity:0}
+.count.pop{animation:count .6s ease-out}
+@keyframes count{0%{transform:scale(1.6);opacity:0}15%{opacity:1}60%{transform:scale(1)}100%{opacity:0}}
+.flash,.nflash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;border-radius:inherit}
+.flash.go,.nflash.go{animation:flash .45s ease-out}
+@keyframes flash{0%{opacity:.95}100%{opacity:0}}
+.shots{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:5px;opacity:0;transition:opacity .3s}
+.shots.on{opacity:1}.shots i{width:6px;height:6px;border-radius:50%;background:#fff;opacity:.35;transition:opacity .2s}.shots i.on{opacity:1}
+.frames .b{padding:5px 11px;font-size:12px}
+/* the strip prints out under the notch */
+.slot{position:absolute;left:50%;top:196px;width:130px;margin-left:-65px;height:236px;overflow:hidden;pointer-events:none}
+.print{width:86px;height:206px;margin:0 auto;border-radius:4px;box-shadow:0 10px 22px rgba(0,0,0,.5);transform:translateY(-104%);transition:transform .25s ease-in}
+.print.out{transform:none;transition:transform 1.5s cubic-bezier(.3,1.25,.5,1);animation:swing 1s ease-in-out 1.3s}
+@keyframes swing{30%{transform:rotate(2deg)}65%{transform:rotate(-1.3deg)}}
+.print{transform-origin:top center}
+.print i{display:block;height:46px;margin:5px 6px 0;border-radius:6px;background:var(--me);border:2px solid #fff}
+.print b{display:block;text-align:center;font-size:9px;font-weight:800;margin-top:3px;color:#fff}
+.print em{display:block;width:30px;height:10px;margin:8px auto 0;background:#000;border-radius:0 0 6px 6px}
+.print.kilo{background:linear-gradient(160deg,var(--a),var(--b))}
+.print.film{background:#111113;padding:0 8px;--holes:repeating-linear-gradient(180deg,#e9e2d2 0 6px,transparent 6px 11px)}
+.print.film{background:var(--holes) left 2px top 0/4px 100% no-repeat,var(--holes) right 2px top 0/4px 100% no-repeat,#111113}
+.print.film i{border:0;border-radius:1px;margin:5px 4px 0}.print.film b{color:#f2a43a;font-family:Consolas,monospace;letter-spacing:.2em}.print.film em{background:#f2a43a}
+.print.paper{background:#fbf7ee}.print.paper i{border:1px solid #e3dacb}.print.paper b{color:#2a2a2e;font-family:"Segoe Print","Comic Sans MS",cursive;font-weight:400}
+
 /* closed */
 .l-closed{width:236px;height:38px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-weight:700;font-size:16px}
 .ring{width:20px;height:20px;transform:rotate(-90deg)}
@@ -234,9 +279,9 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 <div class="wrap hero">
   <span class="pill"><i></i>For Windows 10 and 11</span>
   <h1>A little island that <em>lives</em> at the top of your screen.</h1>
-  <p class="lede">Kilo Notch turns the top edge of Windows into a notch that plays your music with word-synced lyrics, runs your focus timer, reminds you to drink, keeps files close and checks off your to-dos. Then it blinks, and gets out of the way.</p>
+  <p class="lede">Kilo Notch turns the top edge of Windows into a notch that plays your music with word-synced lyrics, runs your focus timer, reminds you to drink, keeps files close and checks off your to-dos. And it has a face: Kilo dances to your songs, naps when you're away and runs a little photo booth.</p>
   <div class="cta">
-    <a class="btn primary" href="https://github.com/hamaddddds/Kilo-Notch/releases/latest">
+    <a class="btn primary" href="https://github.com/hamaddddds/Kilo-Notch/releases/latest/download/KiloNotch.exe">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 20h16"/></svg>Download for Windows</a>
     <a class="btn ghost" href="https://github.com/hamaddddds/Kilo-Notch">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>Source on GitHub</a>
@@ -252,7 +297,10 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
         <div class="pool" id="pool"></div>
         <div class="ring-wave" id="ringWave"></div>
 
+        <div class="nflash" id="nflash"></div>
+
         <div class="layer l-rest" data-l="rest"><i class="eye"></i><i class="eye"></i></div>
+        <div class="layer l-kilo" data-l="kilo"><span class="note l">&#9834;</span><span class="note r">&#9835;</span><span class="zz">z</span><span class="kwrap" id="kFace"></span></div>
 
         <div class="layer l-closed" data-l="closed">
           <svg class="ring" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.5" stroke="rgba(48,209,88,.25)"/><circle cx="10" cy="10" r="8.5" stroke="#30d158" stroke-dasharray="53.4" stroke-dashoffset="16"/></svg>
@@ -318,7 +366,18 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
             </div>
           </div>
 
-          <div class="dots" id="dots"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="page" data-p="photo">
+            <div class="row" style="height:124px;gap:16px">
+              <div class="mirror"><span class="count" id="count"></span><div class="shots" id="shots"><i></i><i></i><i></i></div><div class="flash" id="flash"></div></div>
+              <div style="flex:1;min-width:0">
+                <div class="row" style="gap:10px"><span id="pFace" style="width:44px;display:flex;justify-content:center"></span><div><b id="pStatus" style="font-size:15px;display:block">Ready when you are</b><span class="dim" id="pSub" style="font-size:12px">Pick a frame, then snap</span></div></div>
+                <div class="row frames" id="frames" style="gap:6px;margin-top:10px"><button class="b soft" data-f="kilo">Kilo</button><button class="b" data-f="film">Film</button><button class="b" data-f="paper">Paper</button></div>
+                <div class="row" style="margin-top:10px"><button class="b acc" id="snap" style="width:auto;padding:7px 14px"><svg class="ico" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Snap</button></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dots" id="dots"><i></i><i></i><i></i><i></i><i></i><i></i></div>
         </div>
 
         <div class="layer l-lyrics" data-l="lyrics">
@@ -345,12 +404,15 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
           <span class="pct">70%</span>
         </div>
       </div>
+      <div class="slot"><div class="print kilo" id="print"><i></i><i></i><i></i><em></em><b>kilo booth</b></div></div>
     </div>
     <div class="dragcard" id="ghost"></div>
   </div>
 
   <div class="chips" id="chips">
-    <button class="chip" data-s="rest">Resting</button><button class="chip" data-s="closed">Closed</button>
+    <button class="chip" data-s="rest">Resting</button><button class="chip" data-s="dance">Dancing</button>
+    <button class="chip" data-s="sleep">Asleep</button><button class="chip" data-s="mood">Moods</button>
+    <button class="chip" data-s="photo">Photo booth</button><button class="chip" data-s="closed">Closed</button>
     <button class="chip" data-s="music">Music</button><button class="chip" data-s="lyrics">Lyrics</button>
     <button class="chip" data-s="focus">Focus timer</button><button class="chip" data-s="water">Water</button>
     <button class="chip" data-s="shelf">Shelf</button><button class="chip" data-s="todo">To-do</button>
@@ -364,7 +426,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   <h2 class="sec-title">Everything you glance at, in one place.</h2>
   <p class="sec-lede">Hover the notch and it opens. Move away and it closes. Swipe between pages with the arrows or your scroll wheel.</p>
   <div class="grid">
-    <div class="card"><span class="app" style="--c1:#ff7ab6;--c2:#b84bff"><svg viewBox="0 0 24 24"><path d="M9 18V6l11-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></span><h3>Music from any player</h3><p>Spotify, YouTube in your browser, Apple Music and anything else Windows can control. Cover art, seek bar and a live sound wave.</p></div>
+    <div class="card"><span class="app" style="--c1:#ff7ab6;--c2:#b84bff"><svg viewBox="0 0 24 24"><path d="M9 18V6l11-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></span><h3>Music from any player</h3><p>Spotify, YouTube in your browser, Apple Music and anything else Windows can control. Cover art, seek bar and a live sound wave, both wearing the cover's own colors.</p></div>
     <div class="card"><span class="app" style="--c1:#7aa8ff;--c2:#5b4bff"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></span><h3>Lyrics, word by word</h3><p>Syllable-timed lyrics from Better Lyrics, with LRCLIB as a fallback. Lines grow and glow as they're sung; click one to jump there.</p></div>
     <div class="card"><span class="app" style="--c1:#ff8a7a;--c2:#ff4b6e"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M10 2h4"/></svg></span><h3>Focus timer</h3><p>Pomodoro with a ring that sweeps live, a soft chime at the end, and the countdown right in the closed notch.</p></div>
     <div class="card"><span class="app" style="--c1:#6fd3ff;--c2:#2d7bff"><svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg></span><h3>Water reminder</h3><p>Set your glass and goal; it nudges you during your hours and charts what you drank today.</p></div>
@@ -372,7 +434,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     <div class="card"><span class="app" style="--c1:#6ee79a;--c2:#159a45"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></span><h3>To-do with reminders</h3><p>Jot a task with a time and the notch taps you on the shoulder when it's due.</p></div>
     <div class="card"><span class="app" style="--c1:#b388ff;--c2:#6a3dff"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18c1.5 0 2-1 2-2s-1-1.5-1-2.5S14 15 15 15h2a4 4 0 0 0 4-4"/></svg></span><h3>Your colors</h3><p>Six gradient presets, a hue slider, gradient width, vibrance and glow, in dark or light. Text flips black or white on its own to stay readable.</p></div>
     <div class="card"><span class="app" style="--c1:#9be15d;--c2:#00b3a4"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2M7 10v4M11 10v4"/></svg></span><h3>Battery &amp; headphones</h3><p>A quick peek when you plug in, unplug, or your earbuds connect, with their battery when they share it.</p></div>
-    <div class="card"><span class="app" style="--c1:#ff9ad5;--c2:#ff5ea8"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h3>A little personality</h3><p>When nothing is happening the eyes come out. They follow your cursor, doze off when you're away and say hi when you're back.</p></div>
+    <div class="card"><span class="app" style="--c1:#ff9ad5;--c2:#ff5ea8"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h3>Meet Kilo</h3><p>The eyes come out when nothing's happening. Kilo follows your cursor, dances to your music, naps after five quiet minutes, cheers when you drink or finish a task, and sulks when the battery's low.</p></div>
+    <div class="card"><span class="app" style="--c1:#ffb36a;--c2:#ff5e7e"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><h3>Photo booth</h3><p>Kilo winks like he's aiming the camera, counts down, snaps three shots and prints a strip in a Kilo, Film or Paper frame. Copy it, or drag it straight into a chat.</p></div>
   </div>
 </section>
 
@@ -394,6 +457,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     <details><summary>Which music players work?</summary><p>Anything that shows up in Windows' own media controls: Spotify, Apple Music, Windows Media Player, and most players in Chrome, Edge and Firefox, including YouTube and YouTube Music.</p></details>
     <details><summary>Why does a song have no lyrics, or only line timing?</summary><p>Word-timed lyrics come from Better Lyrics' public cache. Songs it hasn't cached fall back to LRCLIB, a free community library that is usually line-synced; the notch then estimates each word's timing. Some newer or local songs aren't in either yet.</p></details>
     <details><summary>Why doesn't the focus page show my city?</summary><p>It needs Windows location for desktop apps: Settings → Privacy &amp; security → Location → "Let desktop apps access your location". You can switch the city off in Kilo Notch's settings.</p></details>
+    <details><summary>Where do photo booth strips go?</summary><p>To <code>Pictures\Kilo Booth</code> as PNGs. The camera turns on only after you press "Start camera" and switches off the moment the notch closes. If it says the camera is off, allow it under Settings → Privacy &amp; security → Camera → "Let desktop apps access your camera".</p></details>
     <details><summary>Does it slow down games?</summary><p>No. It steps aside for full-screen apps, games and presentations, and draws nothing while it's hidden or still.</p></details>
     <details><summary>How do I start it with Windows or quit it?</summary><p>Right-click the notch or its tray icon. "Start with Windows" and "Exit" are right there.</p></details>
   </div>
@@ -404,6 +468,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   <div class="prose">
     <p>Kilo Notch has no accounts and no analytics. Tasks, water log, shelf and settings live in one file in your user folder.</p>
     <p>When the lyrics view is open, the song's title, artist and length are sent to Better Lyrics and, if needed, LRCLIB to find lyrics. If "Show my city" is on, your position is rounded to about 1 km before OpenStreetMap's Nominatim turns it into a place name. Nothing else leaves your PC.</p>
+    <p>The photo booth uses your camera only while you're on its page after pressing "Start camera". Photos are saved on your PC and never uploaded.</p>
   </div>
 </section>
 </main>
@@ -415,10 +480,15 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 <script>
 const notch = document.getElementById("notch"), scale = document.getElementById("scale"), screen = document.getElementById("screen");
 const chips = [...document.querySelectorAll(".chip")], caption = document.getElementById("caption");
-const pages = ["music", "focus", "water", "shelf", "todo"];
-const titles = { music: "", focus: "Pomodoro", water: "Water <b>Reminder</b>", shelf: "Shelf", todo: "Todo<b>List</b>" };
+const pages = ["music", "focus", "water", "shelf", "todo", "photo"];
+const titles = { music: "", focus: "Pomodoro", water: "Water <b>Reminder</b>", shelf: "Shelf", todo: "Todo<b>List</b>", photo: "Photo <b>Booth</b>" };
+const KILO = ["dance", "sleep", "mood"];
 const captions = {
-  rest: "Nothing playing: the clock steps aside and the eyes come out.",
+  rest: "Nothing playing: the clock steps aside and Kilo's eyes come out.",
+  dance: "Music on and you've stepped away: Kilo bops to the beat, notes floating up.",
+  sleep: "Five quiet minutes and Kilo dozes off. Move the mouse and he wakes up happy.",
+  mood: "Happy when you drink or finish a task, sad when the battery's low or a glass is overdue.",
+  photo: "Photo booth: Kilo winks, counts down, snaps three shots and prints a strip. Press Snap.",
   closed: "Closed: battery, time and a live sound wave while music plays.",
   music: "Hover to open. Controls for whatever is playing on your PC.",
   lyrics: "Lyrics mode: the notch widens and lights each word as it's sung.",
@@ -441,7 +511,8 @@ function show(s) {
   if (isPage) page = s;
   notch.dataset.s = isPage ? "page" : s;
   notch.classList.toggle("open", isPage);
-  document.querySelectorAll(".layer").forEach(l => l.classList.toggle("on", l.dataset.l === (isPage ? "open" : s)));
+  const layer = isPage ? "open" : KILO.includes(s) ? "kilo" : s;
+  document.querySelectorAll(".layer").forEach(l => l.classList.toggle("on", l.dataset.l === layer));
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("on", p.dataset.p === page));
   document.querySelectorAll("#dots i").forEach((d, i) => d.classList.toggle("on", pages[i] === page));
   document.getElementById("pageTitle").innerHTML = titles[page];
@@ -452,6 +523,8 @@ function show(s) {
   if (s === "water") growChart();
   if (s === "shelf") shelfDemo(); else shelfRun++;
   if (s === "lyrics") lyricIndex = -1;
+  if (KILO.includes(s)) kiloDemo(s); else kiloRun++;
+  if (s === "photo") boothReset(); else { booth++; printEl.classList.remove("out"); }
 }
 chips.forEach(c => c.addEventListener("click", () => show(c.dataset.s)));
 document.getElementById("prev").onclick = e => { e.stopPropagation(); show(pages[Math.max(0, pages.indexOf(page) - 1)]); };
@@ -460,7 +533,7 @@ document.querySelectorAll(".js-lyrics").forEach(b => b.onclick = e => { e.stopPr
 
 // hover opens the notch, like the real one
 let leaveT;
-notch.addEventListener("mouseenter", () => { clearTimeout(leaveT); if (["rest", "closed", "bt", "charge"].includes(state)) { notch.dataset.hovered = state; show(page); } });
+notch.addEventListener("mouseenter", () => { clearTimeout(leaveT); if (["rest", "closed", "bt", "charge", ...KILO].includes(state)) { notch.dataset.hovered = state; show(page); } });
 notch.addEventListener("mouseleave", () => { leaveT = setTimeout(() => { if (notch.dataset.hovered) { show(notch.dataset.hovered); delete notch.dataset.hovered; } }, 300); });
 
 // clock
@@ -561,6 +634,60 @@ async function shelfDemo() {
   await wait(700); pool.className = "pool"; ghost.style.transform = "rotate(-6deg)";
   await wait(3200); if (alive()) shelfDemo();
 }
+
+// Kilo's faces, drawn like the app's: pills for open eyes, strokes for the rest
+const FACES = {
+  open: '<rect x="1" y=".5" width="9" height="15" rx="4.5"/><rect x="24" y=".5" width="9" height="15" rx="4.5"/>',
+  happy: '<path d="M0 10Q5.5-1 11 10M23 10q5.5-11 11 0"/>',
+  sleep: '<path d="M0 4q5.5 8 11 0M23 4q5.5 8 11 0"/>',
+  wink: '<path d="M2 1.5l8 6.5-8 6.5"/><rect x="24" y=".5" width="9" height="15" rx="4.5"/>',
+  sad: '<path d="M0 4.5L9 .5M25 .5l9 4" style="stroke-width:2.2"/><rect x="0" y="6" width="9" height="9" rx="4.5"/><rect x="25" y="6" width="9" height="9" rx="4.5"/><path class="tear" d="M4.5 16c0 0 2 2.5 2 3.7a2 2 0 0 1-4 0c0-1.2 2-3.7 2-3.7z"/>',
+};
+const face = m => `<svg class="kface" viewBox="0 0 34 16">${FACES[m]}</svg>`;
+let kiloRun = 0;
+async function kiloDemo(s) {
+  const run = ++kiloRun, k = document.getElementById("kFace");
+  if (s !== "mood") { k.innerHTML = face(s === "dance" ? "happy" : "sleep"); return; }
+  for (let i = 0; run === kiloRun; i++) { k.innerHTML = face(["happy", "sad", "wink", "open"][i % 4]); await wait(1700); }
+}
+
+// photo booth: wink, 3-2-1, flash, three shots, and the strip prints out under the notch
+const printEl = document.getElementById("print");
+let booth = 0, frame = "kilo";
+function boothReset() {
+  booth++;
+  document.getElementById("pFace").innerHTML = face("open");
+  document.getElementById("pStatus").textContent = "Ready when you are";
+  document.getElementById("pSub").textContent = "Pick a frame, then snap";
+  document.getElementById("shots").classList.remove("on");
+}
+document.querySelectorAll("#frames .b").forEach(b => b.onclick = e => {
+  e.stopPropagation(); frame = b.dataset.f;
+  document.querySelectorAll("#frames .b").forEach(x => x.classList.toggle("soft", x === b));
+  if (printEl.classList.contains("out")) printEl.className = "print out " + frame;
+});
+document.getElementById("snap").onclick = async e => {
+  e.stopPropagation();
+  const run = ++booth, alive = () => run === booth && state === "photo";
+  const st = document.getElementById("pStatus"), sub = document.getElementById("pSub"), pf = document.getElementById("pFace");
+  const cnt = document.getElementById("count"), shots = document.getElementById("shots");
+  printEl.classList.remove("out");
+  shots.classList.add("on"); [...shots.children].forEach(i => i.classList.remove("on"));
+  for (let i = 0; i < 3; i++) {
+    st.textContent = `Shot ${i + 1} of 3`; sub.textContent = i ? "Strike another pose" : "Look at the camera!";
+    pf.innerHTML = face("wink");
+    for (let n = 3; n >= 1; n--) {
+      cnt.textContent = n; cnt.classList.remove("pop"); void cnt.offsetWidth; cnt.classList.add("pop");
+      await wait(600); if (!alive()) return;
+    }
+    for (const f of ["flash", "nflash"]) { const el = document.getElementById(f); el.classList.remove("go"); void el.offsetWidth; el.classList.add("go"); }
+    shots.children[i].classList.add("on"); pf.innerHTML = face("happy");
+    await wait(650); if (!alive()) return;
+  }
+  st.textContent = "Nice one!"; sub.textContent = "Saved to Pictures › Kilo Booth";
+  shots.classList.remove("on");
+  printEl.className = "print " + frame; void printEl.offsetWidth; printEl.classList.add("out");
+};
 
 // themes: the same presets as the app
 const PRESETS = [["Purple", 265, 50, .9], ["Ocean", 195, 45, .9], ["Sunset", 335, 55, .95], ["Mint", 150, 40, .75], ["Aurora", 140, 150, .85], ["Mono", 0, 0, 0]];

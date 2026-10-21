@@ -12,10 +12,12 @@
             <TextBlock Style="{StaticResource Ico}" Text="&#xE916;" FontSize="26" HorizontalAlignment="Center"/>
         </Grid>
         <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock x:Name="Time" FontSize="40" FontWeight="Bold" VerticalAlignment="Center"/>
-                <Button Style="{StaticResource CircleBtn}" Content="&#xE72C;" Margin="12,0,0,0" Click="Reset"/>
-            </StackPanel>
+            <!-- the reset button hangs off the right edge so the digits stay centered over the buttons -->
+            <Grid HorizontalAlignment="Center">
+                <TextBlock x:Name="Time" FontSize="40" FontWeight="Bold" VerticalAlignment="Center"
+                           Typography.NumeralAlignment="Tabular"/>
+                <Button Style="{StaticResource CircleBtn}" Content="&#xE72C;" HorizontalAlignment="Right" Margin="0,0,-40,0" Click="Reset"/>
+            </Grid>
             <TextBlock x:Name="ModeText" Style="{StaticResource Dim}" FontSize="13" HorizontalAlignment="Center" Margin="0,-2,0,10"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <Button x:Name="BreakBtn" Style="{StaticResource PillBtn}" Click="BreakMode">

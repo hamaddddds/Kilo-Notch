@@ -194,8 +194,8 @@ public class SettingsWindow : Window
         Slider(look, "Glow", 0, 100, S.Glow * 100, v => $"{v:0}%", v => { S.Glow = v / 100; Theme.Apply(); });
 
         var notch = Section("", "Notch");
-        Toggle(notch, "Personality", "Eyes come out when nothing is happening", S.Personality, v => { S.Personality = v; MainWindow.I.Collapse(force: true); });
-        Toggle(notch, "Album color glow", "Tint the music view with the cover art", S.AlbumGlow, v => { S.AlbumGlow = v; Theme.Apply(); });
+        Toggle(notch, "Kilo", "Eyes, moods, naps, and dancing to your music", S.Personality, v => { S.Personality = v; MainWindow.I.Collapse(force: true); });
+        Toggle(notch, "Album colors", "Seek bar, visualizer and glow take the cover's colors", S.AlbumGlow, v => { S.AlbumGlow = v; Theme.Apply(); });
         Toggle(notch, "Show my city", "Focus page shows where you are, e.g. Bekasi", S.ShowCity, v => { S.ShowCity = v; Location.Refresh(); });
         Toggle(notch, "Start with Windows", null, AutoStart.Enabled, v => AutoStart.Enabled = v);
 

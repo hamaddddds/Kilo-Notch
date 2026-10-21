@@ -149,11 +149,14 @@ public class Wave : FrameworkElement
     {
         const int bars = 5;
         var w = ActualWidth / (bars * 2 - 1);
+        // one geometry for all bars, so a gradient brush runs across the whole wave
+        var g = new GeometryGroup();
         for (int i = 0; i < bars; i++)
         {
             var k = 0.3 + 0.7 * Math.Abs(Math.Sin(Phase * (0.9 + i * 0.23) + i * 1.9));
             var h = Math.Clamp(ActualHeight * Level * k, w, ActualHeight);
-            dc.DrawRoundedRectangle(Brush, null, new Rect(i * 2 * w, (ActualHeight - h) / 2, w, h), w / 2, w / 2);
+            g.Children.Add(new RectangleGeometry(new Rect(i * 2 * w, (ActualHeight - h) / 2, w, h), w / 2, w / 2));
         }
+        dc.DrawGeometry(Brush, null, g);
     }
 }

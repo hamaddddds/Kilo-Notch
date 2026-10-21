@@ -23,6 +23,7 @@ public class Settings
     public int WaterFrom { get; set; } = 9;
     public int WaterTo { get; set; } = 21;
     public int LastPage { get; set; }
+    public int BoothFrame { get; set; }
 }
 
 public class TodoItem
