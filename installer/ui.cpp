@@ -49,7 +49,7 @@ void Line(float x, float y, float x2, float y2, unsigned color, float width = 1)
 }
 void Text(const std::wstring& text, D2D1_RECT_F area, float size, unsigned color, bool bold = false, DWRITE_TEXT_ALIGNMENT align = DWRITE_TEXT_ALIGNMENT_LEADING) {
     ComPtr<IDWriteTextFormat> format;
-    if (FAILED(writeFactory->CreateTextFormat(L"Segoe UI", nullptr, bold ? DWRITE_FONT_WEIGHT_SEMIBOLD : DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, size, L"en-us", &format))) return;
+    if (FAILED(writeFactory->CreateTextFormat(L"Segoe UI", nullptr, bold ? DWRITE_FONT_WEIGHT_SEMI_BOLD : DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, size, L"en-us", &format))) return;
     format->SetTextAlignment(align); format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR); format->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
     brush->SetColor(Color(color)); canvas->DrawTextW(text.c_str(), static_cast<UINT32>(text.size()), format.Get(), area, brush.Get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
 }
