@@ -65,7 +65,8 @@ int wmain(int argc, wchar_t** argv) {
         Check(!fs::exists(shellEnv.root), "uninstall removes its registered application folder");
         for (const auto& entry : fs::directory_iterator(sandbox)) Check(entry.path().filename().wstring().find(L".kilo-") != 0, "transaction folders cleaned");
         // Only a GUID-named temporary fixture created by this test is recursively removed.
-        Check(sandbox.parent_path() == fs::temp_directory_path(), "test cleanup boundary");
+        Check(fs::equivalent(sandbox.parent_path(), fs::temp_directory_path()) && sandbox.filename() == std::wstring(L"KiloInstallerTest-") + token, "test cleanup boundary");
+        CheckPath(sandbox);
         fs::remove_all(sandbox); CoUninitialize();
         std::cout << checks << " installer checks passed\n"; return 0;
     } catch (const std::exception& ex) { std::cerr << ex.what() << '\n'; CoUninitialize(); return 1; }
