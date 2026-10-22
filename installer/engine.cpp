@@ -88,7 +88,13 @@ static void RemoveLink(const fs::path& file, const fs::path& target) {
     ComPtr<IShellLinkW> link; if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&link)))) return;
     ComPtr<IPersistFile> persist; if (FAILED(link.As(&persist)) || FAILED(persist->Load(file.c_str(), STGM_READ))) return;
     wchar_t destination[MAX_PATH]{};
-    if (SUCCEEDED(link->GetPath(destination, MAX_PATH, nullptr, SLGP_RAWPATH)) && _wcsicmp(destination, target.c_str()) == 0) fs::remove(file);
+    if (SUCCEEDED(link->GetPath(destination, MAX_PATH, nullptr, SLGP_RAWPATH))) {
+        // Shell links may expand an 8.3 user folder to its long name. Compare file
+        // identity as well as spelling, while leaving links to another app alone.
+        std::error_code error;
+        const bool sameFile = fs::equivalent(fs::path(destination), target, error);
+        if (sameFile || _wcsicmp(destination, target.c_str()) == 0) fs::remove(file);
+    }
 }
 [[maybe_unused]] static void Register(const Environment& env, bool desktop, bool startup) {
     HKEY key{}; Require(RegCreateKeyExW(HKEY_CURRENT_USER, ProductKey, 0, nullptr, 0, KEY_WRITE, nullptr, &key, nullptr) == ERROR_SUCCESS, "Couldn't register the installation.");

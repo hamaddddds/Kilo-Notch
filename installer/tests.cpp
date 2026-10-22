@@ -60,7 +60,9 @@ int wmain(int argc, wchar_t** argv) {
         wchar_t startup[32768]{}; DWORD startupSize = sizeof(startup);
         Check(RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", L"Notch", RRF_RT_REG_SZ, nullptr, startup, &startupSize) == ERROR_SUCCESS && std::wstring(startup).find(shellEnv.root.wstring()) != std::wstring::npos, "startup restored after rollback");
         Uninstall(shellEnv, quiet);
-        Check(!fs::exists(shellEnv.menu) && !fs::exists(shellEnv.desktop) && !fs::exists(shellEnv.root), "uninstall removes own shell registration and app");
+        Check(!fs::exists(shellEnv.menu), "uninstall removes its Start menu shortcut");
+        Check(!fs::exists(shellEnv.desktop), "uninstall removes its desktop shortcut");
+        Check(!fs::exists(shellEnv.root), "uninstall removes its registered application folder");
         for (const auto& entry : fs::directory_iterator(sandbox)) Check(entry.path().filename().wstring().find(L".kilo-") != 0, "transaction folders cleaned");
         // Only a GUID-named temporary fixture created by this test is recursively removed.
         Check(sandbox.parent_path() == fs::temp_directory_path(), "test cleanup boundary");
