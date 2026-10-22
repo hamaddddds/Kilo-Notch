@@ -5,7 +5,7 @@
 <p align="center">A living notch for Windows: music with word-synced lyrics, a focus timer, water reminders,<br>
 a file shelf and to-dos, tucked into a little island at the top of your screen.</p>
 
-<p align="center"><a href="https://hamaddddds.github.io/Kilo-Notch/"><b>Live preview</b></a> · <a href="https://github.com/hamaddddds/Kilo-Notch/releases/latest/download/KiloNotch.exe">Windows</a> · <a href="https://github.com/hamaddddds/Kilo-Notch/releases/latest/download/KiloNotch.apk">Android</a></p>
+<p align="center"><a href="https://hamaddddds.github.io/Kilo-Notch/"><b>Live preview</b></a> · <a href="https://github.com/hamaddddds/Kilo-Notch/releases/latest/download/KiloSetup.exe">Windows</a> · <a href="https://github.com/hamaddddds/Kilo-Notch/releases/download/v1.2.0/KiloNotch.apk">Android</a></p>
 
 ## What's inside
 
@@ -42,33 +42,46 @@ Build (Android SDK with platform 37, JDK 17+):
 cd android
 gradlew assembleRelease
 ```
-## Lightweight
+## Windows
 
-Native WPF, no browser engine. It draws only while something moves, and while collapsed it hands idle memory
-back to Windows: about 35 MB in Task Manager even with the visualizer running. One ~25 MB exe.
+Native WPF, with no browser engine. The x64 installer includes the .NET runtime and installs per-user.
 
-## Run
+### Desktop polish (1.3)
 
-Needs Windows 10 2004+ or Windows 11 and the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
+- Lyrics reveal to the **right** of the player, with reversible open/close motion and a gently staggered lyric scroll.
+- Shelf has larger previews, **Add**, file actions on right-click, and **Undo** after clearing the shelf.
+- To-do reminders offer **15 / 30 / 60 minutes**, tomorrow morning, or a day/hour/minute picker. In **Edit** mode, click a task to change its text or reminder, then **Save**. Past clock times roll forward to tomorrow.
+- Photo Booth offers **Original, Warm, Mono, Vintage and Cool** filters. After taking a strip, choosing **Kilo / Film / Paper** or a filter automatically prints a new version from the original shots. Original shots remain in memory for this app session; every printed version is a separate PNG in `Pictures\Kilo Booth`.
+- Kilo peeks while you type, winks on double-click, and has curious, surprised and low-power faces. Keyboard reactions inspect only key-down timing, never the keys or typed text; disable **Typing peek** in Settings.
+- Battery warnings appear at **20% and 10%** when unplugged. **Gentle energy saver** dims Kilo's glow, stops idle dancing and caps the notch's frame loop near 30 fps when the battery is low or Windows energy saver is on. It does not change Windows power settings.
+- **Camera reactions** in Settings or the tray explicitly enables local face presence/position detection. Kilo follows your face and greets you when you return; a green dot and tray state indicate that the camera is on. Turn it off from Settings/tray. It starts off on each launch and stops when Photo Booth starts. Photo Booth has its own **React to me** option that stops with its camera when the page closes. No recognition, emotion inference, recording or uploads are used for reactions.
 
+## Installation and updates
+
+Download `KiloSetup.exe` from Releases. The installer and uninstaller are native C++ executables drawn with Kilo's own Direct2D/DirectWrite UI. They install only to `%LOCALAPPDATA%\Programs\Kilo Notch`, register under HKCU, and preserve settings, tasks and photos. No administrator access is requested. Existing portable copies should be closed from their tray before installing.
+
+Kilo checks [the stable JSON feed](https://hamaddddds.github.io/Kilo-Notch/updates/stable.json) after launch and every six hours. An update makes the mascot react and appears in Settings/the tray. Downloading verifies the release's SHA-256 checksum before opening the custom installer. Installation starts when you choose **Update Kilo**. A failed upgrade restores the previous application files. This release is unsigned.
+
+## Development and quality checks
+
+**Do not build, restore, package or run desktop/installer executable tests locally.** All Windows compilation and executable tests run in GitHub Actions. Local QC is source-only:
+
+```powershell
+pwsh -File scripts/qc.ps1
 ```
-dotnet run
-```
 
-Build the single-file exe:
+A static website preview is allowed: `node scripts/preview.mjs`.
 
-```
-dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
-```
+The `Kilo quality and release` workflow runs source checks, WPF behavior/render smoke checks, then builds the self-contained app and custom installer. Installer tests cover fresh install, failed upgrade rollback, locked files, corrupt packages, foreign destinations and uninstall data preservation. Release assets and the matching JSON feed publish only after the quality job succeeds. Existing release assets are immutable; increment the version for a new desktop release. Visual test renders are CI artifacts, never committed to Git.
 
-Right-click the notch or the tray icon for settings, "Start with Windows" and exit.
+For hardware verification on a CI-built release: try typing in another app; toggle Camera reactions and check the indicator goes off; take a strip and switch themes; use Settings → Try it → Low battery. Automated QC cannot replace hardware testing or guarantee zero bugs.
 
 ## Privacy
 
 No accounts, no analytics. Tasks, water log, shelf and settings live in `%APPDATA%\Notch\data.json`.
 While the lyrics view is open, the song's title, artist and length go to Better Lyrics / LRCLIB. With "Show my city" on,
 your position is rounded to ~1 km before OpenStreetMap's Nominatim names the place.
-The photo booth's camera runs only after you press "Start camera" and stops as soon as the notch closes; photos never leave your PC.
+The photo booth's camera runs only after you press "Start camera" and stops as soon as the notch closes; photos never leave your PC. Optional Camera reactions keeps the camera running until you turn it off in Settings/tray or open Photo Booth's camera. Detection stays on this PC and its frames are not saved.
 
 ## Credits
 

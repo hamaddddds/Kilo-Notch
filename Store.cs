@@ -24,6 +24,9 @@ public class Settings
     public int WaterTo { get; set; } = 21;
     public int LastPage { get; set; }
     public int BoothFrame { get; set; }
+    public int BoothFilter { get; set; }
+    public bool TypingPeek { get; set; } = true;
+    public bool EnergySaver { get; set; } = true;
 }
 
 public class TodoItem

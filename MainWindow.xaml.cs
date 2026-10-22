@@ -16,7 +16,7 @@ public partial class MainWindow : Window
 
     enum View { Resting, Closed, Peek, Open }
     static readonly Size RestingSize = new(150, 38), ClosedSize = new(236, 38), PeekSize = new(330, 58),
-        OpenSize = new(500, 188), LyricsSize = new(680, 188);
+        OpenSize = new(500, 188), LyricsSize = new(680, 188), PhotoSize = new(560, 220);
     // One glow brush for the notch's whole life; its colors animate instead of being swapped.
     readonly LinearGradientBrush _glow = new() { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0), GradientStops = { new(Colors.Black, 0), new(Colors.Black, 1) } };
     // the song's colors (seek bar, visualizers, dance notes), gliding the same way
@@ -55,6 +55,11 @@ public partial class MainWindow : Window
     DateTime _today = DateTime.Today, _lastWheel, _reactUntil, _lastOpen = DateTime.Now, _nextFidget = DateTime.Now.AddSeconds(40);
     double _phase, _level;
     readonly Random _rnd = new();
+    readonly TypingActivity _keys = new();
+    VisionResult? _visionFace;
+    int _batteryNotice;
+    bool _saving, _wasTyping;
+    bool LowEnergy => Store.D.Settings.EnergySaver && (Power.Saving || Power.HasBattery && !Power.Plugged && Power.Percent <= 20);
     readonly DispatcherTimer _beat = new() { Interval = TimeSpan.FromSeconds(1) };
     readonly DispatcherTimer _gazePoll = new() { Interval = TimeSpan.FromMilliseconds(40) };
     readonly DispatcherTimer _enter = new() { Interval = TimeSpan.FromMilliseconds(60) };  // hover intent: a cursor passing by doesn't open it
@@ -69,6 +74,10 @@ public partial class MainWindow : Window
     {
         I = this;
         InitializeComponent();
+        Closed += async (_, _) => { _keys.Dispose(); await CompanionVision.SetEnabled(false); };
+        Face.ToolTip = "Kilo · double-click for a little hello";
+        CompanionVision.Changed += () => { VisionLight.Visibility = CompanionVision.Enabled ? Visibility.Visible : Visibility.Collapsed; if (_view is View.Resting or View.Closed) Collapse(); };
+        Face.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { React(Mood.Wink, 2); e.Handled = true; } };
         _pages = new FrameworkElement[] { Music, new FocusPage(), new WaterPage(), _shelf, _todo, new PhotoPage() };
         Music.Fill.Background = _vibe;
         Music.Viz.Brush = _vibe;
@@ -160,6 +169,7 @@ public partial class MainWindow : Window
     void Frame(object? sender, EventArgs e)
     {
         var now = ((RenderingEventArgs)e).RenderingTime;
+        if (_saving && _lastFrame != TimeSpan.Zero && (now - _lastFrame).TotalMilliseconds < 32) return;
         if (now == _lastFrame) return; // Rendering can fire more than once per frame
         var dt = _lastFrame == TimeSpan.Zero ? 1 / 60.0 : Math.Min((now - _lastFrame).TotalSeconds, 1 / 20.0);
         _lastFrame = now;
@@ -344,7 +354,7 @@ public partial class MainWindow : Window
     {
         if (_typing || _dragInside || _held) return;
         _peekEnd.Stop();
-        var rest = Store.D.Settings.Personality && (_dancing || (!Player.Playing && !Pomodoro.Running));
+        var rest = Store.D.Settings.Personality && (_dancing || Store.D.Settings.TypingPeek && _keys.Active || CompanionVision.Enabled || (!Player.Playing && !Pomodoro.Running));
         if (!_dancing)
         {
             _bob.Value = _bob.Velocity = _tilt.Value = _tilt.Velocity = _tilt.Target = 0;
@@ -376,9 +386,10 @@ public partial class MainWindow : Window
         _trim.Stop();
         if (DateTime.Now - _lastOpen > TimeSpan.FromMinutes(20)) React(Mood.Happy, 3); // missed you
         _lastOpen = DateTime.Now;
-        var size = _lyrics ? LyricsSize : OpenSize;
-        if (_view == View.Open && OpenView.Width == size.Width) return;
-        OpenView.Width = size.Width;
+        var size = _lyrics ? LyricsSize : _page == 5 ? PhotoSize : OpenSize;
+        if (_view == View.Open && _base == size) return;
+        OpenView.BeginAnimation(WidthProperty, new DoubleAnimation(size.Width, TimeSpan.FromMilliseconds(_lyrics ? 620 : 440)) { EasingFunction = EaseOut });
+        OpenView.BeginAnimation(HeightProperty, new DoubleAnimation(size.Height, TimeSpan.FromMilliseconds(440)) { EasingFunction = EaseOut });
         Morph(size, View.Open);
         RefreshClosed();
     }
@@ -414,6 +425,9 @@ public partial class MainWindow : Window
         var pct = Power.HasBattery ? Power.Percent : 70;
         switch (what)
         {
+            case "lowbattery": React(Mood.LowPower, 8); Peek("", "Bad", .1, "Kilo needs a little power", "Plug in when you can · taking it easy", "10%"); break;
+            case "curious": React(Mood.Curious, 6); break;
+            case "surprised": React(Mood.Surprised, 3); break;
             case "charging": Peek("", "Good", pct / 100.0, "Charging", "Charger connected", $"{pct}%"); break;
             case "headphones": Peek("", "AccentA", 0.7, "Demo Buds", "Connected · 70%", badge: ""); break;
             case "water": Peek("", "AccentA", 0.5, "Time for some water", "0.75 / 1.5 L today", badge: ""); break;
@@ -438,7 +452,7 @@ public partial class MainWindow : Window
         // a very bright glow (white covers, Mono theme) would wash out the white text above it
         var bright = (Theme.Luma(a) + Theme.Luma(b)) / 2;
         if (bright > 0.65) f *= 0.55;
-        GlowShape.BeginAnimation(OpacityProperty, new DoubleAnimation(s.Glow * f, d) { EasingFunction = EaseOut });
+        GlowShape.BeginAnimation(OpacityProperty, new DoubleAnimation(s.Glow * f * (LowEnergy ? .55 : 1), d) { EasingFunction = EaseOut });
     }
 
     // ---------- live bits ----------
@@ -489,6 +503,25 @@ public partial class MainWindow : Window
         Pomodoro.Tick();
         RefreshClosed();
         var now = DateTime.Now;
+        _keys.Enable(Store.D.Settings.Personality && Store.D.Settings.TypingPeek);
+        var typingNow = Store.D.Settings.Personality && Store.D.Settings.TypingPeek && _keys.Active;
+        if (typingNow != _wasTyping)
+        {
+            _wasTyping = typingNow;
+            if (_view is View.Resting or View.Closed) Collapse();
+            if (typingNow) Face.Bob.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(7, 0, TimeSpan.FromMilliseconds(480)) { EasingFunction = EaseOut });
+        }
+        var saving = LowEnergy;
+        if (_saving != saving) { _saving = saving; ApplyGlow(); UpdateTimers(); }
+        int batteryBand = Power.BatteryBand(Power.HasBattery, Power.Plugged, Power.Percent);
+        if (batteryBand > _batteryNotice)
+        {
+            React(Mood.LowPower, 5);
+            Peek("", "Bad", Power.Percent / 100.0, batteryBand == 2 ? "Kilo needs a little power" : "Let's save some energy",
+                "Plug in when you can · taking it easy", $"{Power.Percent}%");
+        }
+        _batteryNotice = batteryBand;
+        UpdateFace();
         Water.Check(now);
         TodoPage.CheckDue(now);
         if (now.Date != _today)
@@ -510,13 +543,13 @@ public partial class MainWindow : Window
         // Any input wakes him up with a happy hello.
         var idle = IdleTime();
         var personality = Store.D.Settings.Personality && Visibility == Visibility.Visible;
-        var dance = personality && Player.Playing && !Pomodoro.Running && idle > TimeSpan.FromSeconds(20);
+        var dance = personality && !LowEnergy && Player.Playing && !Pomodoro.Running && idle > TimeSpan.FromSeconds(20);
         if (dance != _dancing)
         {
             _dancing = dance;
             if (_view is View.Resting or View.Closed) Collapse();
         }
-        var sleep = Player.Playing ? 0 : idle > TimeSpan.FromMinutes(5) ? 2 : idle > TimeSpan.FromSeconds(90) ? 1 : 0;
+        var sleep = Player.Playing || _visionFace is { Present: true } ? 0 : idle > TimeSpan.FromMinutes(5) ? 2 : idle > TimeSpan.FromSeconds(90) ? 1 : 0;
         if (sleep != _sleep)
         {
             var woke = sleep < _sleep;
@@ -538,6 +571,7 @@ public partial class MainWindow : Window
     {
         var watching = _view == View.Resting && Visibility == Visibility.Visible && _sleep == 0 && !_dancing;
         _gazePoll.IsEnabled = watching;
+        _gazePoll.Interval = TimeSpan.FromMilliseconds(LowEnergy ? 100 : 40);
         _blink.IsEnabled = watching;
         if (WaveLive || DanceLive) StartLoop();
     }
@@ -549,6 +583,9 @@ public partial class MainWindow : Window
         var worried = (Power.HasBattery && !Power.Plugged && Power.Percent <= 20) || Water.Thirsty;
         Face.Mood = _sleep == 2 ? Mood.Asleep : _sleep == 1 ? Mood.Drowsy
             : DateTime.Now < _reactUntil ? _react
+            : LowEnergy ? Mood.LowPower
+            : Store.D.Settings.TypingPeek && _keys.Active ? Mood.Curious
+            : _visionFace is { Present: true } ? Mood.Curious
             : _dancing ? Mood.Happy
             : worried ? Mood.Sad : Mood.Normal;
     }
@@ -593,12 +630,23 @@ public partial class MainWindow : Window
         var c = eyes.PointToScreen(new Point(eyes.ActualWidth / 2, eyes.ActualHeight / 2));
         var tx = Math.Clamp((p.X - c.X) / 70, -5, 5);
         var ty = Math.Clamp((p.Y - c.Y) / 150, -1.5, 2.5);
+        if (Store.D.Settings.TypingPeek && _keys.Active) { tx = Math.Sin(Environment.TickCount64 / 240.0) * 2; ty = 3; }
+        else if (_visionFace is { Present: true } face) { tx = (0.5 - face.X) * 10; ty = (face.Y - 0.5) * 5; }
         if (Math.Abs(tx - _gx.Target) + Math.Abs(ty - _gy.Target) < 0.05) return;
         _gx.Target = tx;
         _gy.Target = ty;
         _gx.Tune(170, 18);
         _gy.Tune(170, 18);
         StartLoop();
+    }
+
+    public void ClearVision() { _visionFace = null; Face.ToolTip = "Kilo · double-click for a little hello"; UpdateFace(); }
+    public void VisionReaction(VisionResult face)
+    {
+        if (face.Present && _visionFace is not { Present: true }) React(Mood.Happy, 2);
+        else if (!face.Present && _visionFace is { Present: true }) React(Mood.Curious, 2);
+        _visionFace = face;
+        Face.ToolTip = "Camera reactions ON · turn off in tray or Settings";
     }
 
     void Blink()
@@ -644,6 +692,7 @@ public partial class MainWindow : Window
         }
         UpdateArrows();
         ApplyGlow();
+        if (_view == View.Open) Open();
     }
 
     // Page title; the focus page shows where you are (e.g. "Bekasi") once the location is known.
@@ -674,10 +723,13 @@ public partial class MainWindow : Window
     public void SetLyrics(bool on)
     {
         _lyrics = on;
-        Header.Visibility = Dots.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
-        Grid.SetRow(PageHost, on ? 0 : 1);
-        Grid.SetRowSpan(PageHost, on ? 3 : 1);
-        PageHost.Margin = on ? new Thickness(26, 16, 26, 14) : new Thickness(50, 2, 50, 0);
+        foreach (var chrome in new FrameworkElement[] { Header, Dots })
+        {
+            chrome.IsHitTestVisible = !on;
+            chrome.BeginAnimation(OpacityProperty, new DoubleAnimation(on ? 0 : 1, TimeSpan.FromMilliseconds(on ? 140 : 320)));
+        }
+        PageHost.BeginAnimation(MarginProperty, new ThicknessAnimation(on ? new Thickness(26, 16, 26, 14) : new Thickness(50, 38, 50, 24),
+            TimeSpan.FromMilliseconds(on ? 620 : 440)) { EasingFunction = EaseOut });
         UpdateArrows();
         Music.SetLyricsMode(on);
         Open();

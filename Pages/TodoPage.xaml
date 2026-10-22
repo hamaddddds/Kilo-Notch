@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="190"/>
+            <ColumnDefinition Width="170"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         <StackPanel VerticalAlignment="Center">
@@ -28,16 +28,16 @@
         <DockPanel Grid.Column="1">
             <Border x:Name="Editor" DockPanel.Dock="Top" CornerRadius="10" Padding="10,5" Margin="0,0,0,6" Visibility="Collapsed"
                     Background="{DynamicResource Surface}" BorderThickness="1" BorderBrush="{DynamicResource AccentA}">
-                <DockPanel>
-                    <Grid DockPanel.Dock="Right" Width="44">
-                        <TextBox x:Name="DueBox" Style="{StaticResource Field}" FontSize="12" KeyDown="EditorKey" TextChanged="EditorChanged"/>
-                        <TextBlock x:Name="DueHint" Style="{StaticResource Dim}" Text="HH:mm" Margin="3,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center"/>
-                    </Grid>
+                <StackPanel>
                     <Grid>
                         <TextBox x:Name="TaskBox" Style="{StaticResource Field}" KeyDown="EditorKey" TextChanged="EditorChanged"/>
                         <TextBlock x:Name="TaskHint" Style="{StaticResource Dim}" FontSize="13" Text="New task…" Margin="3,0,0,0" IsHitTestVisible="False" VerticalAlignment="Center"/>
                     </Grid>
-                </DockPanel>
+                    <DockPanel Margin="0,4,0,0">
+                        <Button Content="Save" DockPanel.Dock="Right" Padding="8,3" FontSize="11" Style="{StaticResource SoftBtn}" Click="SaveTask"/>
+                        <Button x:Name="TimeButton" Content="No reminder ▾" Padding="4,3" FontSize="11" Style="{StaticResource PillBtn}" Click="PickTime" HorizontalAlignment="Left"/>
+                    </DockPanel>
+                </StackPanel>
             </Border>
             <Grid>
                 <TextBlock x:Name="EmptyHint" Style="{StaticResource Dim}" Text="Nothing to do. Nice." FontSize="13"

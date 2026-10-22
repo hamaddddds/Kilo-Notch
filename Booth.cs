@@ -17,22 +17,36 @@ using Windows.Media.MediaProperties;
 
 namespace Notch;
 
-/// The webcam as a live WriteableBitmap. Only runs while the photo booth asks for it.
-sealed class Camera
+/// The webcam as a live WriteableBitmap, started explicitly by the booth or camera reactions.
+sealed class Camera(int maxWidth = 1280, int minimumFrameMilliseconds = 0)
 {
     MediaCapture? _cap;
     MediaFrameReader? _reader;
     byte[] _px = Array.Empty<byte>();
     int _pending;
+    readonly SemaphoreSlim _lifecycle = new(1);
+    long _lastFrameAt;
 
     public WriteableBitmap? Frame { get; private set; }
     public bool On => _cap != null;
     public event Action? NewFrame; // the bitmap was (re)created: point the preview at it
 
     // Set up off the UI thread; MediaCapture is agile and frames arrive on worker threads anyway.
-    public Task Start() => Task.Run(async () =>
+    public async Task Start()
+    {
+        await _lifecycle.WaitAsync();
+        try
+        {
+            if (On) return;
+            await Task.Run(InitializeCapture);
+        }
+        finally { _lifecycle.Release(); }
+    }
+
+    async Task InitializeCapture()
     {
         var cap = new MediaCapture();
+        MediaFrameReader? reader = null;
         try
         {
             await cap.InitializeAsync(new MediaCaptureInitializationSettings { StreamingCaptureMode = StreamingCaptureMode.Video, MemoryPreference = MediaCaptureMemoryPreference.Cpu });
@@ -40,11 +54,11 @@ sealed class Camera
                 .OrderBy(s => s.Info.MediaStreamType == MediaStreamType.VideoPreview ? 0 : 1).FirstOrDefault()
                 ?? throw new InvalidOperationException("no color camera");
             // up to 720p: sharp enough for a strip, cheap enough to copy every frame
-            var fmt = src.SupportedFormats.Where(f => f.VideoFormat.Width is >= 480 and <= 1280)
+            var fmt = src.SupportedFormats.Where(f => f.VideoFormat.Width >= 320 && f.VideoFormat.Width <= maxWidth)
                 .OrderByDescending(f => f.VideoFormat.Width).ThenByDescending(f => f.FrameRate.Denominator == 0 ? 0 : (double)f.FrameRate.Numerator / f.FrameRate.Denominator)
                 .FirstOrDefault();
             if (fmt != null) try { await src.SetFormatAsync(fmt); } catch (Exception) { } // keep the camera's default
-            var reader = await cap.CreateFrameReaderAsync(src, MediaEncodingSubtypes.Bgra8);
+            reader = await cap.CreateFrameReaderAsync(src, MediaEncodingSubtypes.Bgra8);
             reader.AcquisitionMode = MediaFrameReaderAcquisitionMode.Realtime;
             reader.FrameArrived += Arrived;
             if (await reader.StartAsync() != MediaFrameReaderStartStatus.Success) throw new InvalidOperationException("camera busy");
@@ -53,32 +67,47 @@ sealed class Camera
         }
         catch (Exception)
         {
+            if (reader != null) { reader.FrameArrived -= Arrived; reader.Dispose(); }
             cap.Dispose();
             throw;
         }
-    });
+    }
 
     void Arrived(MediaFrameReader r, MediaFrameArrivedEventArgs e)
     {
+        if (r != _reader || !On) return;
+        var now = Environment.TickCount64;
+        if (now - Interlocked.Read(ref _lastFrameAt) < minimumFrameMilliseconds) return;
+        Interlocked.Exchange(ref _lastFrameAt, now);
         if (Interlocked.CompareExchange(ref _pending, 1, 0) != 0) return; // the screen hasn't caught up: skip this one
-        using var frame = r.TryAcquireLatestFrame();
-        var sb = frame?.VideoMediaFrame?.SoftwareBitmap;
-        if (sb == null) { Volatile.Write(ref _pending, 0); return; }
-        using var converted = sb.BitmapPixelFormat == BitmapPixelFormat.Bgra8 ? null : SoftwareBitmap.Convert(sb, BitmapPixelFormat.Bgra8);
-        var b = converted ?? sb;
-        int w = b.PixelWidth, h = b.PixelHeight;
-        if (_px.Length != w * h * 4) _px = new byte[w * h * 4];
-        b.CopyToBuffer(_px.AsBuffer());
-        Application.Current.Dispatcher.InvokeAsync(() =>
+        try
         {
-            if (Frame == null || Frame.PixelWidth != w || Frame.PixelHeight != h)
+            using var frame = r.TryAcquireLatestFrame();
+            var sb = frame?.VideoMediaFrame?.SoftwareBitmap;
+            if (sb == null) { Volatile.Write(ref _pending, 0); return; }
+            using var converted = sb.BitmapPixelFormat == BitmapPixelFormat.Bgra8 ? null : SoftwareBitmap.Convert(sb, BitmapPixelFormat.Bgra8);
+            var b = converted ?? sb;
+            int w = b.PixelWidth, h = b.PixelHeight;
+            if (_px.Length != w * h * 4) _px = new byte[w * h * 4];
+            b.CopyToBuffer(_px.AsBuffer());
+            Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                Frame = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgr32, null);
-                NewFrame?.Invoke();
-            }
-            Frame.WritePixels(new Int32Rect(0, 0, w, h), _px, w * 4, 0);
-            Volatile.Write(ref _pending, 0);
-        }, DispatcherPriority.Render);
+                try
+                {
+                    if (r != _reader || !On) return;
+                    var created = false;
+                    if (Frame == null || Frame.PixelWidth != w || Frame.PixelHeight != h)
+                    {
+                        Frame = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgr32, null);
+                        created = true;
+                    }
+                    Frame.WritePixels(new Int32Rect(0, 0, w, h), _px, w * 4, 0);
+                    if (created) NewFrame?.Invoke();
+                }
+                finally { Volatile.Write(ref _pending, 0); }
+            }, DispatcherPriority.Render);
+        }
+        catch (Exception) { Volatile.Write(ref _pending, 0); }
     }
 
     /// A still of what the preview shows right now.
@@ -92,17 +121,22 @@ sealed class Camera
 
     public async Task Stop()
     {
-        var (r, c) = (_reader, _cap);
-        _reader = null;
-        _cap = null;
-        Frame = null;
-        if (r != null)
+        await _lifecycle.WaitAsync();
+        try
         {
-            r.FrameArrived -= Arrived;
-            try { await r.StopAsync(); } catch (Exception) { } // already gone (camera unplugged)
-            r.Dispose();
+            var (r, c) = (_reader, _cap);
+            _reader = null;
+            _cap = null;
+            Frame = null;
+            if (r != null)
+            {
+                r.FrameArrived -= Arrived;
+                try { await r.StopAsync(); } catch (Exception) { } // already gone (camera unplugged)
+                r.Dispose();
+            }
+            c?.Dispose(); // the camera light goes off here
         }
-        c?.Dispose(); // the camera light goes off here
+        finally { _lifecycle.Release(); }
     }
 }
 
@@ -185,7 +219,7 @@ public static class Booth
     {
         var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Kilo Booth");
         Directory.CreateDirectory(dir);
-        var path = Path.Combine(dir, $"Kilo Booth {DateTime.Now:yyyy-MM-dd HH.mm.ss}.png");
+        var path = Path.Combine(dir, $"Kilo Booth {DateTime.Now:yyyy-MM-dd HH.mm.ss.fff}-{Guid.NewGuid().ToString("N")[..6]}.png");
         var png = new PngBitmapEncoder();
         png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(strip));
         using var f = File.Create(path);
@@ -293,7 +327,10 @@ class BoothPrint : Window
         RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
         var paper = new Grid
         {
-            Width = w, Height = _h, VerticalAlignment = VerticalAlignment.Top, RenderTransformOrigin = new Point(0.5, 0),
+            Width = w,
+            Height = _h,
+            VerticalAlignment = VerticalAlignment.Top,
+            RenderTransformOrigin = new Point(0.5, 0),
             RenderTransform = new TransformGroup { Children = { _swing, _feed } },
             Children =
             {
@@ -321,8 +358,13 @@ class BoothPrint : Window
         close.Click += (_, _) => Dismiss();
         _bar = new Border
         {
-            CornerRadius = new CornerRadius(16), Padding = new Thickness(8), BorderThickness = new Thickness(1),
-            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 12), Opacity = 0,
+            CornerRadius = new CornerRadius(16),
+            Padding = new Thickness(8),
+            BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 0, 12),
+            Opacity = 0,
             Effect = new DropShadowEffect { BlurRadius = 16, ShadowDepth = 3, Direction = 270, Opacity = 0.4, RenderingBias = RenderingBias.Performance },
             Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { copy, show, close } },
         };

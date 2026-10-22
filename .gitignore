@@ -3,3 +3,7 @@ obj/
 publish/
 .vs/
 *.user
+artifacts/
+installer/payload.cab
+installer/payload_hashes.h
+installer/build/

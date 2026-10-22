@@ -43,6 +43,7 @@
                   RenderTransformOrigin="0.5,0">
                 <Grid.RenderTransform><ScaleTransform/></Grid.RenderTransform>
                 <local:Kilo x:Name="Face" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0"/>
+                <Ellipse x:Name="VisionLight" Width="5" Height="5" Fill="{DynamicResource Good}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0" Visibility="Collapsed" ToolTip="Camera reactions are on"/>
                 <!-- notes that float up while Kilo dances -->
                 <TextBlock x:Name="NoteL" Text="&#x266A;" FontFamily="Segoe UI Symbol" FontSize="13" HorizontalAlignment="Left"
                            VerticalAlignment="Center" Margin="34,0,0,0" Opacity="0">
@@ -107,7 +108,7 @@
                     </StackPanel>
                     <local:Wave x:Name="HeadWave" Width="18" Height="14" HorizontalAlignment="Right" Brush="{DynamicResource Fg}"/>
                 </Grid>
-                <ContentControl x:Name="PageHost" Grid.Row="1" Margin="50,2,50,0" Focusable="False"/>
+                <ContentControl x:Name="PageHost" Grid.Row="0" Grid.RowSpan="3" Margin="50,38,50,24" Focusable="False"/>
                 <Button x:Name="PrevPage" Grid.Row="1" Style="{StaticResource CircleBtn}" Content="&#xE76B;"
                         HorizontalAlignment="Left" Margin="12,0,0,0" Click="PagePrev"/>
                 <Button x:Name="NextPage" Grid.Row="1" Style="{StaticResource CircleBtn}" Content="&#xE76C;"

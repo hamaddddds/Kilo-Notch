@@ -6,6 +6,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace Notch;
 
@@ -36,6 +37,15 @@ public class PhotoPage : UserControl
     bool _busy, _starting, _denied;
     BitmapSource? _last;
     string? _lastPath;
+    readonly List<BitmapSource> _originals = new();
+    readonly DispatcherTimer _previewTick = new() { Interval = TimeSpan.FromMilliseconds(66) };
+    readonly ComboBox _filter = new() { Width = 104, FontSize = 11 };
+    readonly CheckBox _vision = new() { Content = "React to me", FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0), ToolTip = "Local face detection while this camera is on. No identification or uploads." };
+    readonly FaceVision _detector = new();
+    DateTime _takenAt;
+    string? _takenPlace;
+    bool _previewBusy;
+    int _printVersion;
 
     public PhotoPage()
     {
@@ -43,6 +53,8 @@ public class PhotoPage : UserControl
         _aim.SetResourceReference(TextBlock.ForegroundProperty, "AccentA");
         _sub.Style = (Style)Application.Current.Resources["Dim"];
         _goIcon.Style = (Style)Application.Current.Resources["Ico"];
+        _vision.Style = (Style)Application.Current.Resources["ReactionToggle"];
+        _vision.IsEnabled = false;
 
         // left: the mirror
         var camIcon = new TextBlock { Text = "", FontSize = 24, HorizontalAlignment = HorizontalAlignment.Center, Style = (Style)Application.Current.Resources["Ico"] };
@@ -67,7 +79,7 @@ public class PhotoPage : UserControl
         {
             var k = i;
             var b = new Button { Content = Booth.Frames[i], FontSize = 12, Padding = new Thickness(11, 5, 11, 5), Margin = new Thickness(0, 0, 6, 0) };
-            b.Click += (_, _) => { Store.D.Settings.BoothFrame = k; MarkFrame(); };
+            b.Click += (_, _) => { Store.D.Settings.BoothFrame = k; Store.Save(); MarkFrame(); Reprint(); };
             _frames.Children.Add(b);
         }
         MarkFrame();
@@ -81,13 +93,21 @@ public class PhotoPage : UserControl
         right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0), Children = { _go, _again } };
-        _frames.Margin = new Thickness(0, 10, 0, 0);
+        right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0), Children = { _go, _again } };
+        _frames.Margin = new Thickness(0, 6, 0, 0);
+        _filter.ItemsSource = PhotoFilters.Names;
+        _filter.SelectedIndex = Math.Clamp(Store.D.Settings.BoothFilter, 0, PhotoFilters.Names.Length - 1);
+        _filter.ToolTip = "Photo filter · preview and printed strip";
+        _filter.SelectionChanged += (_, _) => { Store.D.Settings.BoothFilter = _filter.SelectedIndex; Store.Save(); Reprint(); };
+        var effects = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0), Children = { _filter, _vision } };
         Grid.SetRow(_frames, 1);
-        Grid.SetRow(buttons, 2);
+        Grid.SetRow(effects, 2);
+        Grid.SetRow(buttons, 3);
         right.Children.Add(who);
         right.Children.Add(_frames);
         right.Children.Add(buttons);
+        right.Children.Add(effects);
 
         var root = new Grid();
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -104,6 +124,8 @@ public class PhotoPage : UserControl
             _live.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300)));
         };
         IsVisibleChanged += (_, _) => { if (!IsVisible) Off(); };
+        _previewTick.Tick += async (_, _) => await Preview();
+        _vision.Unchecked += (_, _) => { _detector.Reset(); _kilo.Gaze.X = _kilo.Gaze.Y = 0; if (!_busy) Idle(); };
         Idle();
     }
 
@@ -133,8 +155,11 @@ public class PhotoPage : UserControl
         Say("Waking the camera…", "One sec");
         try
         {
+            await CompanionVision.SetEnabled(false);
             await _cam.Start();
             if (!IsVisible) { Off(); return; } // you scrolled away while it started
+            _previewTick.Start();
+            _vision.IsEnabled = true;
             _kilo.Mood = Mood.Happy;
             await Task.Delay(900);
             Idle();
@@ -157,7 +182,9 @@ public class PhotoPage : UserControl
     async Task Shoot()
     {
         _busy = true;
+        ++_printVersion;
         _go.IsEnabled = false;
+        _frames.IsEnabled = _filter.IsEnabled = false;
         MainWindow.I.Hold(true);
         var shots = new List<BitmapSource>();
         foreach (Ellipse d in _dots.Children) d.Opacity = 0.35;
@@ -188,9 +215,15 @@ public class PhotoPage : UserControl
             {
                 Say("Printing…", "Kilo's developing your strip");
                 await Task.Delay(50); // let the text show before the render
-                var strip = Booth.Compose(shots, Store.D.Settings.BoothFrame, DateTime.Now, Store.D.Settings.ShowCity ? Location.City : null);
+                _originals.Clear();
+                _originals.AddRange(shots);
+                _takenAt = DateTime.Now;
+                _takenPlace = Store.D.Settings.ShowCity ? Location.City : null;
+                int filter = Store.D.Settings.BoothFilter;
+                var filtered = await Task.Run(() => shots.Select(s => PhotoFilters.Apply(s, filter)).ToArray());
+                var strip = Booth.Compose(filtered, Store.D.Settings.BoothFrame, _takenAt, _takenPlace);
                 _last = strip;
-                _lastPath = Booth.Save(strip);
+                _lastPath = await Task.Run(() => Booth.Save(strip));
                 BoothPrint.Show(strip, _lastPath);
                 _again.Visibility = Visibility.Visible;
                 Say("Nice one!", "Saved to Pictures › Kilo Booth");
@@ -204,9 +237,72 @@ public class PhotoPage : UserControl
         {
             _busy = false;
             _go.IsEnabled = true;
+            _frames.IsEnabled = _filter.IsEnabled = true;
             _dots.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(300)) { BeginTime = TimeSpan.FromSeconds(1) });
             MainWindow.I.Hold(false);
         }
+    }
+
+    async void Reprint()
+    {
+        if (_busy || _originals.Count != Shots) return;
+        int version = ++_printVersion, filter = Store.D.Settings.BoothFilter, frame = Store.D.Settings.BoothFrame;
+        var originals = _originals.ToArray();
+        Say("Developing your remix…", $"{Booth.Frames[frame]} · {PhotoFilters.Names[filter]}");
+        try
+        {
+            await Task.Delay(160); // coalesce quick theme/filter changes before processing full-size photos
+            if (version != _printVersion || _busy) return;
+            var photos = await Task.Run(() => originals.Select(s => PhotoFilters.Apply(s, filter)).ToArray());
+            if (version != _printVersion || _busy) return;
+            var strip = Booth.Compose(photos, frame, _takenAt, _takenPlace);
+            var path = await Task.Run(() => Booth.Save(strip));
+            if (version != _printVersion || _busy) return;
+            _last = strip;
+            _lastPath = path;
+            BoothPrint.Show(_last, _lastPath);
+            Say("Fresh off the printer", "Same photos, a new look");
+            _kilo.Mood = Mood.Happy;
+        }
+        catch (Exception) { Say("Couldn't print this version", "Your original shots are still here"); }
+    }
+
+    async Task Preview()
+    {
+        if (_previewBusy || !_cam.On || !IsVisible || _cam.Frame == null) return;
+        _previewBusy = true;
+        try
+        {
+            int filter = Store.D.Settings.BoothFilter;
+            if (filter == 0)
+            {
+                _live.Source = _cam.Frame;
+                if (_vision.IsChecked != true || _busy || !_detector.Ready) return;
+            }
+            var raw = _cam.Snap()!;
+            var still = new TransformedBitmap(raw, new ScaleTransform(480.0 / raw.PixelWidth, 480.0 / raw.PixelWidth)); still.Freeze();
+            if (filter != 0)
+            {
+                var preview = await Task.Run(() => PhotoFilters.Apply(still, filter));
+                if (!_cam.On || !IsVisible || filter != Store.D.Settings.BoothFilter) return;
+                _live.Source = preview;
+            }
+            if (_vision.IsChecked == true && !_busy)
+            {
+                var face = await _detector.Observe(still);
+                if (_vision.IsChecked != true || !_cam.On || !IsVisible || _busy) return;
+                if (face is VisionResult result)
+                {
+                    _kilo.Gaze.X = (0.5 - result.X) * 10;
+                    _kilo.Gaze.Y = (result.Y - 0.5) * 5;
+                    _kilo.Mood = result.Present ? Mood.Curious : Mood.Drowsy;
+                    Say(result.Present ? "Hey, I see you!" : "Where did you go?", "Vision on · processed on this PC");
+                }
+                else Say("Face detection unavailable", "Camera and filters still work");
+            }
+        }
+        catch (Exception) { if (_vision.IsChecked == true) Say("Vision paused", "Try restarting the camera"); }
+        finally { _previewBusy = false; }
     }
 
     void Count(int n)
@@ -233,6 +329,9 @@ public class PhotoPage : UserControl
     // Out of sight: the camera (and its light) goes off.
     async void Off()
     {
+        _previewTick.Stop();
+        _vision.IsEnabled = false;
+        _vision.IsChecked = false;
         if (!_cam.On) return;
         await _cam.Stop();
         _live.Source = null;

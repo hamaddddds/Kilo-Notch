@@ -9,7 +9,7 @@
                 <TextBlock x:Name="EmptyIcon" Style="{StaticResource Ico}" Text="&#xE896;" FontSize="22" HorizontalAlignment="Center">
                     <TextBlock.RenderTransform><TranslateTransform/></TextBlock.RenderTransform>
                 </TextBlock>
-                <TextBlock Text="Drop files here" FontSize="15" Margin="0,6,0,0" HorizontalAlignment="Center"/>
+                <Button Content="Drop files here or browse" Style="{StaticResource PillBtn}" FontSize="13" Margin="0,6,0,0" Click="Browse"/>
                 <TextBlock Style="{StaticResource Dim}" Text="Drag out anytime · click to open" FontSize="11" HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>
@@ -17,7 +17,9 @@
         <DockPanel x:Name="Full" Visibility="Collapsed">
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                 <Button Style="{StaticResource PillBtn}" Content="Clear" Padding="10,3" FontSize="11" DockPanel.Dock="Right" Click="Clear"/>
-                <TextBlock x:Name="Count" Style="{StaticResource Dim}" VerticalAlignment="Center"/>
+                <Button Style="{StaticResource SoftBtn}" Content="+ Add" Padding="10,3" Margin="0,0,5,0" FontSize="11" DockPanel.Dock="Right" Click="Browse"/>
+                <Button x:Name="UndoButton" Style="{StaticResource PillBtn}" Content="Undo" Padding="8,3" FontSize="11" DockPanel.Dock="Right" Visibility="Collapsed" Click="Undo"/>
+                <TextBlock x:Name="Count" Style="{StaticResource Dim}" FontSize="11" VerticalAlignment="Center"/>
             </DockPanel>
             <ScrollViewer x:Name="Scroll" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
                           PreviewMouseWheel="ScrollSideways">

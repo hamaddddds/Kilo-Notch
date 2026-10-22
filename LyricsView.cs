@@ -13,7 +13,7 @@ namespace Notch;
 public class LyricsView : Grid
 {
     class WordFx { public Word W = null!; public LinearGradientBrush Brush = null!; }
-    class Row { public Line Line = null!; public Border Box = null!; public List<WordFx> Words = new(); }
+    class Row { public Line Line = null!; public Border Box = null!; public List<WordFx> Words = new(); public ScaleTransform Scale = new(.94, .94); public TranslateTransform Drift = new(); }
 
     static readonly IEasingFunction Spring = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 };
     readonly StackPanel _stack = new() { VerticalAlignment = VerticalAlignment.Top };
@@ -50,7 +50,8 @@ public class LyricsView : Grid
         MouseWheel += (_, e) =>
         {
             if (_synced) return;
-            _scroll.Y = Math.Min(24, _scroll.Y + e.Delta / 3.0);
+            var target = Math.Clamp(_scroll.Y + e.Delta / 3.0, Math.Min(12, ActualHeight - _stack.ActualHeight - 20), 12);
+            _scroll.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(target, TimeSpan.FromMilliseconds(260)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
             e.Handled = true;
         };
     }
@@ -87,8 +88,8 @@ public class LyricsView : Grid
             }
             row.Box = new Border
             {
-                Child = wrap, Padding = new Thickness(0, 4, 8, 4), Background = Brushes.Transparent,
-                RenderTransformOrigin = new Point(0, 0.5), RenderTransform = new ScaleTransform(0.94, 0.94),
+                Child = wrap, Padding = new Thickness(0, 6, 8, 6), Background = Brushes.Transparent,
+                RenderTransformOrigin = new Point(0, 0.5), RenderTransform = new TransformGroup { Children = { row.Scale, row.Drift } },
                 Opacity = _synced ? 0.3 : 0.85,
             };
             if (_synced)
@@ -164,11 +165,14 @@ public class LyricsView : Grid
             if (i != _active) Light(r, i < _active ? 1 : 0);
             // past lines fade faster than upcoming ones, like a karaoke screen
             var opacity = dist == 0 ? 1 : i < _active ? (dist == 1 ? 0.35 : 0.12) : dist == 1 ? 0.55 : dist == 2 ? 0.32 : 0.16;
-            r.Box.BeginAnimation(OpacityProperty, new DoubleAnimation(opacity, d));
-            var s = (ScaleTransform)r.Box.RenderTransform;
+            var duration = dist <= 5 ? d : TimeSpan.Zero;
+            r.Box.BeginAnimation(OpacityProperty, new DoubleAnimation(opacity, duration));
+            var s = r.Scale;
             var scale = dist == 0 ? 1.0 : 0.94;
-            s.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(scale, d) { EasingFunction = Spring });
-            s.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(scale, d) { EasingFunction = Spring });
+            s.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(scale, duration) { EasingFunction = Spring });
+            s.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(scale, duration) { EasingFunction = Spring });
+            r.Drift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(i > _active ? Math.Min(12, dist * 3) : 0, duration)
+                { BeginTime = TimeSpan.FromMilliseconds(dist <= 5 ? dist * 24 : 0), EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
             r.Box.Effect = dist == 0 ? new DropShadowEffect { Color = Theme.A, BlurRadius = 18, ShadowDepth = 0, Opacity = 0.65, RenderingBias = RenderingBias.Performance }
                 : dist <= 3 ? new BlurEffect { Radius = dist * 1.2, RenderingBias = RenderingBias.Performance }
                 : null;
@@ -176,13 +180,13 @@ public class LyricsView : Grid
         // keep the sung line about a third of the way down, fully inside the view
         var lineHeight = _active >= 0 ? _rows[_active].Box.ActualHeight : 0;
         var y = Math.Min(ActualHeight * 0.3, ActualHeight - lineHeight - 8) - top;
-        _scroll.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(y, TimeSpan.FromMilliseconds(650)) { EasingFunction = Spring });
+        _scroll.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(y, TimeSpan.FromMilliseconds(620)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
     }
 
     void Recolor()
     {
         var on = Theme.Fg;
-        var off = Color.FromArgb(80, on.R, on.G, on.B);
+        var off = Color.FromArgb(155, on.R, on.G, on.B);
         foreach (var r in _rows)
             foreach (var w in r.Words)
             {

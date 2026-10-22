@@ -194,7 +194,22 @@ public class SettingsWindow : Window
         Slider(look, "Glow", 0, 100, S.Glow * 100, v => $"{v:0}%", v => { S.Glow = v / 100; Theme.Apply(); });
 
         var notch = Section("", "Notch");
+        var updates = new Button { Content = UpdateCenter.Available is { } latest ? $"Meet Kilo {latest.Version} · Update" : "Check for updates", Style = Res<Style>("SoftBtn"), Margin = new Thickness(0, 0, 0, 16) };
+        updates.Click += async (_, _) => { if (UpdateCenter.Available != null) UpdateCenter.Show(); else await UpdateCenter.Check(true); };
+        void UpdateLabel() => updates.Content = UpdateCenter.Available is { } release ? $"Meet Kilo {release.Version} · Update" : "Check for updates";
+        UpdateCenter.Changed += UpdateLabel;
+        Closed += (_, _) => UpdateCenter.Changed -= UpdateLabel;
+        notch.Children.Add(updates);
         Toggle(notch, "Kilo", "Eyes, moods, naps, and dancing to your music", S.Personality, v => { S.Personality = v; MainWindow.I.Collapse(force: true); });
+        Toggle(notch, "Typing peek", "Kilo peeks at your keyboard activity; typed text is never read", S.TypingPeek, v => S.TypingPeek = v);
+        Toggle(notch, "Gentle energy saver", "Dim glow and calmer motion on low battery or Windows energy saver", S.EnergySaver, v => S.EnergySaver = v);
+        var camera = new Button { Content = CompanionVision.Enabled ? "Camera reactions: ON · Turn off" : "Camera reactions: OFF · Turn on", Style = Res<Style>("SoftBtn"), Margin = new Thickness(0, 8, 0, 8) };
+        camera.Click += async (_, _) => { camera.IsEnabled = false; await CompanionVision.SetEnabled(!CompanionVision.Enabled); camera.IsEnabled = true; };
+        void CameraState() => camera.Content = CompanionVision.Enabled ? "Camera reactions: ON · Turn off" : "Camera reactions: OFF · Turn on";
+        CompanionVision.Changed += CameraState;
+        Closed += (_, _) => CompanionVision.Changed -= CameraState;
+        camera.ToolTip = "Uses your camera locally to follow your face and greet you. No recording. Off at launch; stays on until disabled or Photo Booth starts.";
+        notch.Children.Add(camera);
         Toggle(notch, "Album colors", "Seek bar, visualizer and glow take the cover's colors", S.AlbumGlow, v => { S.AlbumGlow = v; Theme.Apply(); });
         Toggle(notch, "Show my city", "Focus page shows where you are, e.g. Bekasi", S.ShowCity, v => { S.ShowCity = v; Location.Refresh(); });
         Toggle(notch, "Start with Windows", null, AutoStart.Enabled, v => AutoStart.Enabled = v);
@@ -212,7 +227,7 @@ public class SettingsWindow : Window
 
         var demo = Section("", "Try it");
         var demos = new WrapPanel();
-        foreach (var (label, key) in new[] { ("Charging", "charging"), ("Headphones", "headphones"), ("Water", "water"), ("To-do", "todo"), ("Focus done", "focus") })
+        foreach (var (label, key) in new[] { ("Charging", "charging"), ("Low battery", "lowbattery"), ("Curious Kilo", "curious"), ("Surprise", "surprised"), ("Headphones", "headphones"), ("Water", "water"), ("To-do", "todo"), ("Focus done", "focus") })
         {
             var b = new Button { Content = label, Style = Res<Style>("PillBtn"), Margin = new Thickness(0, 0, 8, 8) };
             b.SetResourceReference(BackgroundProperty, "SurfaceHi"); // the card itself is Surface

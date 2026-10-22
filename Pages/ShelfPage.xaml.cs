@@ -23,6 +23,7 @@ public partial class ShelfPage : UserControl
     static readonly IEasingFunction EaseOut = new CubicEase { EasingMode = EasingMode.EaseOut };
     static List<string> Saved => Store.D.Shelf;
     readonly HashSet<string> _fresh = new(StringComparer.OrdinalIgnoreCase); // tiles that should pop in
+    string[] _undo = Array.Empty<string>();
 
     public ShelfPage()
     {
@@ -36,7 +37,7 @@ public partial class ShelfPage : UserControl
     public void Add(IEnumerable<string> paths)
     {
         foreach (var p in paths)
-            if (!Saved.Contains(p, StringComparer.OrdinalIgnoreCase)) { Saved.Add(p); _fresh.Add(p); }
+            if ((File.Exists(p) || Directory.Exists(p)) && !Saved.Contains(p, StringComparer.OrdinalIgnoreCase)) { Saved.Add(p); _fresh.Add(p); }
         Store.Save();
         Refresh();
     }
@@ -53,7 +54,17 @@ public partial class ShelfPage : UserControl
         tile.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(180)));
     }
 
-    void Clear(object sender, RoutedEventArgs e) { Saved.Clear(); Store.Save(); Refresh(); }
+    void Clear(object sender, RoutedEventArgs e) { _undo = Saved.ToArray(); Saved.Clear(); Store.Save(); Refresh(); }
+    void Undo(object sender, RoutedEventArgs e) { var files = _undo; _undo = Array.Empty<string>(); Add(files); }
+    void Browse(object sender, RoutedEventArgs e)
+    {
+        MainWindow.I.Hold(true);
+        try
+        {
+            Add(KiloDialog.PickFiles());
+        }
+        finally { MainWindow.I.Hold(false); }
+    }
 
     void Refresh()
     {
@@ -62,9 +73,10 @@ public partial class ShelfPage : UserControl
         foreach (var p in Saved) Items.Children.Add(Tile(p, _fresh.Contains(p) ? n++ : -1));
         _fresh.Clear();
         var any = Saved.Count > 0;
-        Empty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
-        Full.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
-        Count.Text = $"{Saved.Count} item{(Saved.Count == 1 ? "" : "s")} · drag out or click to open";
+        Empty.Visibility = any || _undo.Length > 0 ? Visibility.Collapsed : Visibility.Visible;
+        Full.Visibility = any || _undo.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UndoButton.Visibility = _undo.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        Count.Text = $"{Saved.Count} item{(Saved.Count == 1 ? "" : "s")} · within reach";
     }
 
     void BobIcon()
@@ -78,9 +90,10 @@ public partial class ShelfPage : UserControl
         var name = new TextBlock { Text = Path.GetFileName(path.TrimEnd('\\')), FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 5, 0, 0) };
         var size = new TextBlock { Text = SizeText(path), FontSize = 10, HorizontalAlignment = HorizontalAlignment.Center };
         size.SetResourceReference(TextBlock.ForegroundProperty, "FgDim");
-        var thumb = new Border { Width = 40, Height = 36, CornerRadius = new CornerRadius(6) };
+        var thumb = new Border { Width = 84, Height = 42, CornerRadius = new CornerRadius(8), Clip = new RectangleGeometry(new Rect(0, 0, 84, 42), 8, 8) };
+        thumb.SetResourceReference(Border.BackgroundProperty, "Surface");
         RenderOptions.SetBitmapScalingMode(thumb, BitmapScalingMode.HighQuality);
-        LoadThumb(path, thumb);
+        LoadThumb(path, thumb, 180);
         var remove = new Button
         {
             Content = "", Style = (Style)FindResource("CircleBtn"), Width = 18, Height = 18, FontSize = 8,
@@ -90,16 +103,25 @@ public partial class ShelfPage : UserControl
         Ui.SetRadius(remove, new CornerRadius(6));
         var box = new Border
         {
-            Width = 78, Padding = new Thickness(6, 8, 6, 6), Margin = new Thickness(0, 0, 8, 0), CornerRadius = new CornerRadius(12),
+            Width = 102, Padding = new Thickness(8, 4, 8, 4), Margin = new Thickness(0, 0, 10, 4), CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1), BorderBrush = Brushes.Transparent,
             Cursor = Cursors.Hand, ToolTip = path, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(),
             Child = new Grid { Children = { new StackPanel { Children = { thumb, name, size } }, remove } },
         };
-        remove.Click += (_, _) => Remove(path, box);
+        remove.Click += (_, e) => { e.Handled = true; Remove(path, box); };
         box.SetResourceReference(Border.BackgroundProperty, "SurfaceHi");
+        var menu = new ContextMenu();
+        menu.Opened += (_, _) => MainWindow.I.Hold(true);
+        menu.Closed += (_, _) => MainWindow.I.Hold(false);
+        void Action(string label, Action action) { var item = new MenuItem { Header = label }; item.Click += (_, _) => action(); menu.Items.Add(item); }
+        Action("Open", () => Open(path));
+        Action("Show in folder", () => Process.Start("explorer.exe", $"/select,\"{path}\""));
+        Action("Copy file", () => { try { Clipboard.SetFileDropList(new System.Collections.Specialized.StringCollection { path }); } catch (ExternalException) { } });
+        Action("Remove from shelf", () => Remove(path, box));
+        box.ContextMenu = menu;
 
         // hover: lift the tile and reveal the remove button
-        box.MouseEnter += (_, _) => { Scale(box, 1.06, Pop, 260); remove.IsHitTestVisible = true; remove.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(150))); };
-        box.MouseLeave += (_, _) => { Scale(box, 1, EaseOut, 220); remove.IsHitTestVisible = false; remove.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(150))); };
+        box.MouseEnter += (_, _) => { box.SetResourceReference(Border.BorderBrushProperty, "AccentA"); Scale(box, 1.035, Pop, 260); remove.IsHitTestVisible = true; remove.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(150))); };
+        box.MouseLeave += (_, _) => { box.BorderBrush = Brushes.Transparent; Scale(box, 1, EaseOut, 220); remove.IsHitTestVisible = false; remove.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(150))); };
 
         // press + move = drag the file out; press + release = open it
         Point down = default;

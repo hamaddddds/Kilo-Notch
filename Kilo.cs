@@ -7,7 +7,7 @@ using System.Windows.Shapes;
 
 namespace Notch;
 
-public enum Mood { Normal, Happy, Sad, Drowsy, Asleep, Wink }
+public enum Mood { Normal, Happy, Sad, Drowsy, Asleep, Wink, Curious, LowPower, Surprised }
 
 /// Kilo, the notch's face: two glowing eyes with a handful of moods. The owner moves Gaze (the eyes)
 /// and Bob/Tilt (the whole face, for hops and dancing); Mood swaps the eye shapes with a quick squint.
@@ -41,6 +41,11 @@ public class Kilo : Grid
         _faces[Mood.Happy] = Pair(Stroke("M0,8 Q5.5,-3 11,8"), Stroke("M0,8 Q5.5,-3 11,8"), 12);
         _faces[Mood.Asleep] = Pair(Stroke("M0,2 Q5.5,10 11,2"), Stroke("M0,2 Q5.5,10 11,2"), 12);
         _faces[Mood.Wink] = Pair(Stroke("M1,1.5 L9.5,7.5 L1,13.5"), Pill(15), 13); // one eye squeezed shut, aiming
+        _faces[Mood.Curious] = Pair(Pill(10, 4), Pill(18), 14);
+        _faces[Mood.Surprised] = Pair(Pill(21), Pill(21), 16);
+        var low = Pair(Stroke("M0,3 L10,5", 3.5), Stroke("M0,5 L10,3", 3.5), 14);
+        foreach (Path eye in low.Children) eye.Stroke = new SolidColorBrush(Color.FromRgb(255, 184, 84));
+        _faces[Mood.LowPower] = low;
         // sad: brows lifted toward the middle, smaller eyes, a tear that slides down
         _tear = new Path { Data = Geometry.Parse("M3,0 C3,0 6,4 6,6 A3,3 0 1 1 0,6 C0,4 3,0 3,0 Z"), Fill = new SolidColorBrush(Color.FromRgb(0x8F, 0xD3, 0xFF)), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(1, 0, 0, -8), Opacity = 0, RenderTransform = new TranslateTransform() };
         _faces[Mood.Sad] = new Grid

@@ -1,0 +1,17 @@
+import {readFileSync,existsSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const html=readFileSync('docs/index.html','utf8');
+const css=readFileSync('docs/site.css','utf8');
+const js=readFileSync('docs/site.js','utf8');
+const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
+assert.equal(new Set(ids).size,ids.length,'HTML ids must be unique');
+for(const [,id] of html.matchAll(/href="#([^"]+)"/g)) assert(ids.includes(id),`Missing anchor ${id}`);
+for(const [,id] of js.matchAll(/\$\('#([\w-]+)'\)/g)) assert(ids.includes(id),`Missing UI target ${id}`);
+for(const [,file] of html.matchAll(/(?:src|href)="([^":#]+\.(?:js|css|png))"/g)) assert(existsSync(`docs/${file}`),`Missing asset ${file}`);
+for(const page of ['music','shelf','todo','booth','companion']) assert(html.includes(`data-panel="${page}"`),`Missing demo ${page}`);
+assert(css.includes('prefers-reduced-motion'),'Respect reduced motion');
+assert(html.includes('aria-pressed')&&html.includes('role="status"'),'Demo accessibility states');
+assert(html.includes('/releases/latest/download/KiloSetup.exe'),'Custom Windows installer link');
+assert(!html.includes('latest/download/KiloNotch.apk'),'Android must retain its existing release');
+assert(html.indexOf('class="player"')<html.indexOf('id="lyrics-wrap"'),'Lyrics follow the player on the right');
+console.log('PASS: website assets, anchors, UI targets, demo panels, download paths and accessibility hooks.');

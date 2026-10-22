@@ -15,6 +15,10 @@ public partial class MusicPage : UserControl
     readonly TextBlock _playGlyph = new() { RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform() };
     bool _seeking, _lyricsOn, _wasPlaying;
     string _lyricsFor = "", _shownSong = "";
+    public static readonly DependencyProperty LyricsProgressProperty = DependencyProperty.Register(
+        nameof(LyricsProgress), typeof(double), typeof(MusicPage), new PropertyMetadata(0.0,
+            (d, e) => ((MusicPage)d).LyricsCol.Width = new GridLength(Math.Max(0, (double)e.NewValue * 358))));
+    public double LyricsProgress { get => (double)GetValue(LyricsProgressProperty); set => SetValue(LyricsProgressProperty, value); }
 
     public MusicPage()
     {
@@ -136,17 +140,20 @@ public partial class MusicPage : UserControl
     public void SetLyricsMode(bool on)
     {
         _lyricsOn = on;
-        // lyrics mode: controls keep a fixed column, the lyrics take the rest
-        MainCol.Width = on ? new GridLength(270) : new GridLength(1, GridUnitType.Star);
-        LyricsCol.Width = on ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-        LyricsPane.Visibility = on ? Visibility.Visible : Visibility.Collapsed; // hidden = no per-frame lyric work
+        // Keep the lyric measure stable while revealing it. Reverse from the current
+        // presentation value on rapid clicks instead of restarting at an endpoint.
+        var duration = TimeSpan.FromMilliseconds(on ? 620 : 440);
+        BeginAnimation(LyricsProgressProperty, new DoubleAnimation(on ? 1 : 0, duration) { EasingFunction = EaseOut });
+        LyricsPane.Visibility = Visibility.Visible;
+        LyricsPane.IsHitTestVisible = on;
         LyricsBtn.SetResourceReference(ForegroundProperty, on ? "AccentA" : "Fg");
-        if (!on) return;
-        var delay = TimeSpan.FromMilliseconds(140);
+        LyricsBtn.ToolTip = on ? "Close lyrics" : "Show lyrics";
         ((TranslateTransform)LyricsPane.RenderTransform).BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation(40, 0, TimeSpan.FromMilliseconds(520)) { BeginTime = delay, EasingFunction = Pop });
-        LyricsPane.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(320)) { BeginTime = delay });
-        LoadLyrics();
+            new DoubleAnimation(on ? 0 : 22, duration) { EasingFunction = EaseOut });
+        var fade = new DoubleAnimation(on ? 1 : 0, TimeSpan.FromMilliseconds(on ? 420 : 180)) { EasingFunction = EaseOut };
+        fade.Completed += (_, _) => { if (!_lyricsOn) LyricsPane.Visibility = Visibility.Collapsed; };
+        LyricsPane.BeginAnimation(OpacityProperty, fade);
+        if (on) LoadLyrics();
     }
 
     // Lyrics are only fetched while the lyrics view is open.

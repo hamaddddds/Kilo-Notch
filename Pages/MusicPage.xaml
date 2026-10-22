@@ -71,10 +71,12 @@
             </Grid>
         </Grid>
 
-        <Border x:Name="LyricsPane" Grid.Column="1" Visibility="Collapsed" BorderThickness="1,0,0,0"
-                BorderBrush="{DynamicResource SurfaceHi}" Margin="18,4,0,4" Padding="18,0,0,0">
+        <Border Grid.Column="1" ClipToBounds="True">
+        <Border x:Name="LyricsPane" Width="338" HorizontalAlignment="Right" Visibility="Collapsed" Opacity="0" BorderThickness="1,0,0,0"
+                BorderBrush="{DynamicResource SurfaceHi}" Margin="20,4,0,4" Padding="18,0,0,0">
             <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
             <local:LyricsView x:Name="Lyr"/>
+        </Border>
         </Border>
     </Grid>
 </UserControl>

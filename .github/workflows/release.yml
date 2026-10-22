@@ -1,0 +1,77 @@
+name: Kilo quality and release
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: kilo-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Source quality checks
+        shell: pwsh
+        run: ./scripts/qc.ps1
+      - name: Windows app, custom installer and lifecycle tests
+        shell: pwsh
+        run: ./scripts/package-ci.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kilo-release
+          path: artifacts/release/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-qc
+          path: artifacts/qa/
+          if-no-files-found: ignore
+  publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: kilo-release
+          path: release
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('release/stable.json','utf8')).version")
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            # Existing releases are immutable: deploy their original feed, never a rebuilt checksum.
+            gh release download "v$VERSION" --pattern stable.json --dir existing
+            cp existing/stable.json release/stable.json
+          else
+            gh release create "v$VERSION" release/KiloSetup.exe release/KiloNotch.exe release/SHA256SUMS.txt release/stable.json --target "$GITHUB_SHA" --title "Kilo $VERSION — a little more alive" --notes-file RELEASE_NOTES.md
+          fi
+          mkdir -p docs/updates
+          cp release/stable.json docs/updates/stable.json
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - uses: actions/deploy-pages@v4
+        id: deployment

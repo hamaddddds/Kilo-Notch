@@ -130,6 +130,58 @@
             <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
         </Style>
 
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Template">
+                <Setter.Value><ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="item" CornerRadius="6" Padding="{TemplateBinding Padding}" Background="Transparent"><ContentPresenter/></Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="item" Property="Background" Value="{DynamicResource SurfaceHi}"/></Trigger>
+                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="item" Property="Background" Value="{DynamicResource AccentSoft}"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate></Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+            <Setter Property="Background" Value="{DynamicResource Surface}"/>
+            <Setter Property="Padding" Value="9,5"/>
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value><ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <ToggleButton Focusable="False" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                            <ToggleButton.Template><ControlTemplate TargetType="ToggleButton">
+                                <Border CornerRadius="9" Background="{DynamicResource Surface}" Padding="9,5">
+                                    <DockPanel><TextBlock Text="⌄" DockPanel.Dock="Right" Foreground="{DynamicResource FgDim}" Margin="8,0,0,0"/><ContentPresenter Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}" TextElement.Foreground="{DynamicResource Fg}" VerticalAlignment="Center"/></DockPanel>
+                                </Border>
+                            </ControlTemplate></ToggleButton.Template>
+                        </ToggleButton>
+                        <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+                            <Border Background="{DynamicResource NotchBg}" BorderBrush="{DynamicResource SurfaceHi}" BorderThickness="1" CornerRadius="10" Padding="4" MinWidth="{TemplateBinding ActualWidth}" MaxHeight="230">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/></ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger></ControlTemplate.Triggers>
+                </ControlTemplate></Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ReactionToggle" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource FgDim}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+                <Border x:Name="pill" Background="{DynamicResource Surface}" CornerRadius="9" Padding="8,5">
+                    <StackPanel Orientation="Horizontal"><Ellipse x:Name="dot" Width="5" Height="5" Fill="{DynamicResource FgDim}" Margin="0,0,6,0"/><ContentPresenter VerticalAlignment="Center"/></StackPanel>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsChecked" Value="True"><Setter Property="Foreground" Value="{DynamicResource Fg}"/><Setter TargetName="dot" Property="Fill" Value="{DynamicResource Good}"/><Setter TargetName="pill" Property="Background" Value="{DynamicResource AccentSoft}"/></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+
         <!-- iOS-style switch: the knob springs across, stretches while pressed, the accent fades in -->
         <Style x:Key="Switch" TargetType="ToggleButton">
             <Setter Property="Cursor" Value="Hand"/>
@@ -331,6 +383,8 @@
             </Setter>
         </Style>
 
+        <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinBar}"/>
+
         <!-- menus (tray and right-click): dark rounded card, soft hover, accent check -->
         <Style TargetType="ContextMenu">
             <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
@@ -392,6 +446,17 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
+                <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}"><ScrollViewer x:Name="PART_ContentHost"/></Border>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="Button" BasedOn="{StaticResource PillBtn}"/>
+        <Style TargetType="TextBox" BasedOn="{StaticResource Field}"/>
+        <Style TargetType="ToolTip">
+            <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip">
+                <Border Background="{DynamicResource NotchBg}" BorderBrush="{DynamicResource SurfaceHi}" BorderThickness="1" CornerRadius="9" Padding="10,7"><ContentPresenter/></Border>
+            </ControlTemplate></Setter.Value></Setter>
         </Style>
     </Application.Resources>
 </Application>

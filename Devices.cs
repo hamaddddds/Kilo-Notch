@@ -11,6 +11,8 @@ public static class Power
     public static bool HasBattery => PowerManager.BatteryStatus != BatteryStatus.NotPresent;
     public static int Percent => PowerManager.RemainingChargePercent;
     public static bool Plugged => PowerManager.PowerSupplyStatus != PowerSupplyStatus.NotPresent;
+    public static bool Saving => PowerManager.EnergySaverStatus == EnergySaverStatus.On;
+    public static int BatteryBand(bool hasBattery, bool plugged, int percent) => !hasBattery || plugged ? 0 : percent <= 10 ? 2 : percent <= 20 ? 1 : 0;
 
     public static void Init(Action<bool> pluggedChanged)
     {
