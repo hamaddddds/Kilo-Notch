@@ -99,6 +99,7 @@ static class Program
             Check(Math.Abs(Field<Grid>(main, "OpenView").Width - 680) < 1, "whole notch expands with lyrics");
             Check(Math.Abs(Field<ColumnDefinition>(main.Music, "MainCol").ActualWidth - 270) < 2, "player retains 270px while lyrics reveal on right");
             Check(Grid.GetColumn((Border)Field<Border>(main.Music, "LyricsPane").Parent) == 1, "lyrics are right of album and title");
+            Check(Field<Border>(main.Music, "LyricsPane").HorizontalAlignment == HorizontalAlignment.Left, "right lyric panel reveals from the start of each line");
             var integrated = new RenderTargetBitmap(1170, 375, 144, 144, PixelFormats.Pbgra32); integrated.Render(root); Save(integrated, "notch-lyrics.png");
             main.SetLyrics(false); Pump(500);
             Check(Math.Abs(Field<Grid>(main, "OpenView").Width - 500) < 1 && Math.Abs(Field<ContentControl>(main, "PageHost").Margin.Top - 38) < .1, "whole notch restores normal layout");
