@@ -33,6 +33,14 @@ Checked { makecab /F artifacts/payload.ddf }
 Checked { cmake -S installer -B installer/build -A x64 }
 Checked { cmake --build installer/build --config Release --target KiloSetup KiloInstallerTests }
 Checked { ctest --test-dir installer/build -C Release --output-on-failure }
+foreach ($program in @('KiloSetup','KiloUninstall')) {
+    # Only on the CI runner: render and navigate the custom window, without installing.
+    $start = [Diagnostics.ProcessStartInfo]::new((Join-Path $PWD "installer/build/Release/$program.exe"), '--smoke')
+    $start.UseShellExecute = $false
+    $process = [Diagnostics.Process]::Start($start)
+    if (!$process.WaitForExit(30000)) { throw "$program UI smoke test timed out." }
+    if ($process.ExitCode -ne 0) { throw "$program UI smoke test failed: $($process.ExitCode)" }
+}
 New-Item -ItemType Directory -Path artifacts/release -Force | Out-Null
 Copy-Item installer/build/Release/KiloSetup.exe artifacts/release/
 Copy-Item artifacts/app/KiloNotch.exe artifacts/release/

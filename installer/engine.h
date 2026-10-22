@@ -14,6 +14,7 @@ using Progress = std::function<void(int, const std::wstring&)>;
 Environment CurrentEnvironment();
 fs::path OwnExecutable();
 bool IsOwned(const fs::path& root);
+bool StartsWithWindows(const Environment& env);
 void CheckPath(const fs::path& path);
 bool AllowedPayloadName(const std::wstring& name);
 std::wstring Sha256(const fs::path& path);

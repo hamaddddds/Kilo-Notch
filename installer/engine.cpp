@@ -75,6 +75,7 @@ static std::wstring ReadString(const wchar_t* key, const wchar_t* name) {
 static void StringValue(HKEY key, const wchar_t* name, const std::wstring& value) {
     Require(RegSetValueExW(key, name, 0, REG_SZ, reinterpret_cast<const BYTE*>(value.c_str()), static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t))) == ERROR_SUCCESS, "Couldn't register Kilo for your account.");
 }
+bool StartsWithWindows(const Environment& env) { return ReadString(RunKey, L"Notch") == L"\"" + (env.root / L"KiloNotch.exe").wstring() + L"\""; }
 static void Link(const fs::path& file, const fs::path& target) {
     CheckPath(file); fs::create_directories(file.parent_path());
     ComPtr<IShellLinkW> link; Require(SUCCEEDED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&link))), "Couldn't create the shortcut.");

@@ -1,4 +1,5 @@
 #include "engine.h"
+#include <objbase.h>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>

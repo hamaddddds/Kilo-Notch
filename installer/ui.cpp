@@ -10,6 +10,8 @@
 #include <memory>
 #include <cmath>
 #include <algorithm>
+#include <fstream>
+#include <vector>
 
 using Microsoft::WRL::ComPtr;
 using namespace kilo;
@@ -31,6 +33,8 @@ std::thread worker;
 Environment environment;
 bool busy = false, complete = false, failed = false, desktop = true, startup = false;
 bool upgrading = false;
+bool smoke = false;
+int smokeExit = 0, paints = 0;
 int progress = 0, focus = 0, hover = -1;
 float displayedProgress = 0, dpi = 96;
 std::wstring status = L"", detail = L"";
@@ -118,6 +122,26 @@ void Draw() {
     if (hover == 3 || focus == 3) Fill(Close, 0xe7e8df, 9);
     Line(818, 25, 828, 35, 0x75816f, 1.5f); Line(828, 25, 818, 35, 0x75816f, 1.5f);
     const auto result = canvas->EndDraw(); if (result == D2DERR_RECREATE_TARGET) { brush.Reset(); canvas.Reset(); }
+    if (SUCCEEDED(result)) ++paints;
+}
+bool SaveSmokeFrame() {
+    RECT rect{}; GetClientRect(window, &rect);
+    HDC source = GetDC(window); HDC target = CreateCompatibleDC(source);
+    BITMAPINFO info{}; info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER); info.bmiHeader.biWidth = rect.right;
+    info.bmiHeader.biHeight = -rect.bottom; info.bmiHeader.biPlanes = 1; info.bmiHeader.biBitCount = 32; info.bmiHeader.biCompression = BI_RGB;
+    void* pixels = nullptr; HBITMAP bitmap = CreateDIBSection(source, &info, DIB_RGB_COLORS, &pixels, nullptr, 0);
+    if (!source || !target || !bitmap || !pixels) { if (bitmap) DeleteObject(bitmap); if (target) DeleteDC(target); if (source) ReleaseDC(window, source); return false; }
+    HGDIOBJ old = SelectObject(target, bitmap);
+    const bool copied = BitBlt(target, 0, 0, rect.right, rect.bottom, source, 0, 0, SRCCOPY) != 0;
+    const DWORD bytes = static_cast<DWORD>(rect.right * rect.bottom * 4);
+    const auto data = static_cast<const unsigned char*>(pixels);
+    bool varied = false; for (DWORD i = 4; i + 4 < bytes; i += 4) if (data[i] != data[0] || data[i+1] != data[1] || data[i+2] != data[2]) { varied = true; break; }
+    BITMAPFILEHEADER header{}; header.bfType = 0x4d42; header.bfOffBits = sizeof(header) + sizeof(BITMAPINFOHEADER); header.bfSize = header.bfOffBits + bytes;
+    fs::create_directories(L"artifacts/qa");
+    std::ofstream file(Removing ? L"artifacts/qa/uninstaller.bmp" : L"artifacts/qa/installer.bmp", std::ios::binary);
+    file.write(reinterpret_cast<const char*>(&header), sizeof(header)); file.write(reinterpret_cast<const char*>(&info.bmiHeader), sizeof(info.bmiHeader)); file.write(static_cast<const char*>(pixels), bytes);
+    const bool saved = file.good(); SelectObject(target, old); DeleteObject(bitmap); DeleteDC(target); ReleaseDC(window, source);
+    return copied && varied && saved;
 }
 std::wstring Wide(const char* text) {
     const int count = MultiByteToWideChar(CP_UTF8, 0, text, -1, nullptr, 0); if (count <= 0) return L"Something went wrong. Please try again.";
@@ -159,7 +183,15 @@ LRESULT CALLBACK Procedure(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam
     switch (message) {
     case WM_PAINT: { PAINTSTRUCT paint{}; BeginPaint(hwnd, &paint); Draw(); EndPaint(hwnd, &paint); return 0; }
     case WM_ERASEBKGND: return 1;
-    case WM_TIMER: InvalidateRect(hwnd, nullptr, FALSE); return 0;
+    case WM_TIMER:
+        if (smoke && paints >= 8) {
+            // Exercise custom keyboard navigation without starting an installation.
+            SendMessageW(hwnd, WM_KEYDOWN, VK_TAB, 0);
+            const bool navigated = focus == (Removing ? 3 : 1);
+            smokeExit = navigated && GetWindow(hwnd, GW_CHILD) == nullptr && SaveSmokeFrame() ? 0 : 1;
+            DestroyWindow(hwnd); return 0;
+        }
+        InvalidateRect(hwnd, nullptr, FALSE); return 0;
     case WM_NCHITTEST: { POINT point{GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)}; ScreenToClient(hwnd, &point); const float x = point.x * 96.0f / dpi, y = point.y * 96.0f / dpi; if (y < 60 && !Inside(Close, x, y)) return HTCAPTION; return HTCLIENT; }
     case WM_MOUSEMOVE: { const float x = GET_X_LPARAM(lparam) * 96.0f / dpi, y = GET_Y_LPARAM(lparam) * 96.0f / dpi; hover = Inside(Close,x,y) ? 3 : Inside(Primary,x,y) ? 0 : Inside(Desktop,x,y) ? 1 : Inside(Startup,x,y) ? 2 : -1; SetCursor(LoadCursorW(nullptr, hover >= 0 ? IDC_HAND : IDC_ARROW)); return 0; }
     case WM_LBUTTONUP: { const float x = GET_X_LPARAM(lparam) * 96.0f / dpi, y = GET_Y_LPARAM(lparam) * 96.0f / dpi; const int hit = Inside(Close,x,y) ? 3 : Inside(Primary,x,y) ? 0 : Inside(Desktop,x,y) ? 1 : Inside(Startup,x,y) ? 2 : -1; if (hit >= 0) { focus = hit; Activate(hit); } return 0; }
@@ -187,9 +219,11 @@ bool RelaunchUninstaller() {
 }
 }
 
-int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
+int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command, int show) {
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    try { environment = CurrentEnvironment(); if (RelaunchUninstaller()) { CoUninitialize(); return 0; } upgrading = IsOwned(environment.root); }
+    smoke = std::wstring(command) == L"--smoke";
+    wchar_t ci[8]{}; if (smoke && (!GetEnvironmentVariableW(L"GITHUB_ACTIONS", ci, 8) || std::wstring(ci) != L"true")) { CoUninitialize(); return 2; }
+    try { environment = CurrentEnvironment(); if (RelaunchUninstaller()) { CoUninitialize(); return 0; } upgrading = IsOwned(environment.root); if (upgrading) { startup = StartsWithWindows(environment); desktop = fs::exists(environment.desktop); } }
     catch (const std::exception& ex) { failed = true; detail = Wide(ex.what()); }
     // Serialize setup and uninstall; the original uninstaller exits before the helper owns this.
     HANDLE singleton = CreateMutexW(nullptr, FALSE, L"Local\\KiloNotch.Setup");
@@ -204,5 +238,5 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     const DWORD rounded = 2; DwmSetWindowAttribute(window, 33, &rounded, sizeof(rounded));
     ShowWindow(window, show); SetTimer(window, 1, 40, nullptr);
     MSG message{}; while (GetMessageW(&message, nullptr, 0, 0) > 0) { TranslateMessage(&message); DispatchMessageW(&message); }
-    brush.Reset(); canvas.Reset(); factory.Reset(); writeFactory.Reset(); ReleaseMutex(singleton); CloseHandle(singleton); CoUninitialize(); return 0;
+    brush.Reset(); canvas.Reset(); factory.Reset(); writeFactory.Reset(); ReleaseMutex(singleton); CloseHandle(singleton); CoUninitialize(); return smokeExit;
 }
