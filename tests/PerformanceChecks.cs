@@ -76,7 +76,7 @@ public static class PerformanceChecks
         var bars = Field<RectangleGeometry[]>(wave, "_bars").ToArray();
         var image = new RenderTargetBitmap(90, 30, 96, 96, PixelFormats.Pbgra32);
         image.Render(wave);
-        var initial = bars[0].Rect;
+        var initial = bars.Select(bar => bar.Rect).ToArray();
         for (var i = 0; i < 120; i++)
         {
             wave.Phase = (i + 1) * .08;
@@ -87,7 +87,11 @@ public static class PerformanceChecks
         check(ReferenceEquals(geometry, Field<GeometryGroup>(wave, "_geometry")) && geometry.Children.Count == 5 &&
             bars.Select((bar, i) => ReferenceEquals(bar, geometry.Children[i]) && ReferenceEquals(bar, Field<RectangleGeometry[]>(wave, "_bars")[i])).All(same => same),
             "120 visualizer redraws retain the group and all five bar geometries");
-        check(bars[0].Rect != initial && bars.All(bar => bar.Rect.Width > 0 && bar.Rect.Height <= 30),
+        check(bars.Where((bar, i) => bar.Rect != initial[i]).Any() && bars.Select((bar, i) =>
+        {
+            var expected = Math.Clamp(30 * wave.Level * (.3 + .7 * Math.Abs(Math.Sin(wave.Phase * (.9 + i * .23) + i * 1.9))), 10, 30);
+            return Math.Abs(bar.Rect.Height - expected) < .00001 && bar.Rect.Width == 10;
+        }).All(matches => matches),
             "retained visualizer geometry still follows animation values");
     }
 
