@@ -61,12 +61,24 @@
             </DockPanel>
 
             <Grid Grid.Row="2">
-                <Button x:Name="LyricsBtn" Style="{StaticResource IconBtn}" Content="&#xE8BD;" HorizontalAlignment="Left"
-                        Padding="6,6" Click="ToggleLyrics"/>
+                <Button x:Name="LyricsBtn" Style="{StaticResource IconBtn}" HorizontalAlignment="Left"
+                        Padding="6,6" Click="ToggleLyrics" AutomationProperties.Name="Toggle lyrics">
+                    <Path Width="20" Height="20" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Data="M 5,2 L 15,2 Q 19,2 19,6 L 19,12 Q 19,16 15,16 L 8,16 3,19 3,15 Q 1,14 1,11 L 1,6 Q 1,2 5,2 M 6,7 L 14,7 M 6,11 L 11,11"/>
+                </Button>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button Style="{StaticResource IconBtn}" Content="&#xE892;" Click="Prev"/>
-                    <Button x:Name="PlayBtn" Style="{StaticResource IconBtn}" FontSize="20" Margin="6,0" Click="Play"/>
-                    <Button Style="{StaticResource IconBtn}" Content="&#xE893;" Click="Next"/>
+                    <Button Style="{StaticResource IconBtn}" Click="Prev" AutomationProperties.Name="Previous track">
+                        <Path Width="20" Height="20" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.6" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 4,3 L 4,17 M 16,3 L 5,10 16,17 Z"/>
+                    </Button>
+                    <Button x:Name="PlayBtn" Style="{StaticResource IconBtn}" FontSize="20" Margin="6,0" Click="Play" AutomationProperties.Name="Play or pause"/>
+                    <Button Style="{StaticResource IconBtn}" Click="Next" AutomationProperties.Name="Next track">
+                        <Path Width="20" Height="20" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.6" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 16,3 L 16,17 M 4,3 L 15,10 4,17 Z"/>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Grid>

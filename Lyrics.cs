@@ -17,7 +17,7 @@ public class Lyric { public List<Line> Lines = new(); public bool Synced; public
 public static class Lyrics
 {
     static readonly HttpClient Http = MakeClient();
-    static readonly Dictionary<string, Lyric?> Cache = new();
+    static readonly LyricCache Cache = new();
     static readonly Regex TimeTag = new(@"\[(\d+):(\d+(?:[.:]\d+)?)\]");
     static readonly Regex WordTag = new(@"<(\d+):(\d+(?:[.:]\d+)?)>");
     static readonly Regex Junk = new(@"\s*[\(\[][^\)\]]*\b(official|video|lyrics?|audio|mv|hd|4k|visuali[sz]er|remaster(ed)?|feat\.?|ft\.?)\b[^\)\]]*[\)\]]", RegexOptions.IgnoreCase);
@@ -39,7 +39,7 @@ public static class Lyrics
         try
         {
             var lyric = await BetterLyrics(t, a, duration) ?? await Lrclib(t, a, duration);
-            Cache[key] = lyric;
+            Cache.Put(key, lyric);
             return lyric;
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or JsonException) { return null; }

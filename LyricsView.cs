@@ -13,7 +13,7 @@ namespace Notch;
 public class LyricsView : Grid
 {
     class WordFx { public Word W = null!; public LinearGradientBrush Brush = null!; }
-    class Row { public Line Line = null!; public Border Box = null!; public List<WordFx> Words = new(); public ScaleTransform Scale = new(.94, .94); public TranslateTransform Drift = new(); }
+    class Row { public Line Line = null!; public Border Box = null!; public List<WordFx> Words = new(); public ScaleTransform Scale = new(.94, .94); public TranslateTransform Drift = new(); public int Style = int.MinValue, MotionVersion; public bool Animating; }
 
     static readonly IEasingFunction Spring = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 };
     readonly StackPanel _stack = new() { VerticalAlignment = VerticalAlignment.Top };
@@ -25,8 +25,15 @@ public class LyricsView : Grid
     };
     readonly TextBlock _source = new() { FontSize = 10, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Opacity = 0.7 };
     readonly List<Row> _rows = new();
+    readonly FramePacer _frames = new();
+    readonly BlurEffect[] _blur = Enumerable.Range(1, 3).Select(i =>
+    {
+        var effect = new BlurEffect { Radius = i * 1.2, RenderingBias = RenderingBias.Performance };
+        effect.Freeze(); return effect;
+    }).ToArray();
+    DropShadowEffect _highlight = null!;
     bool _synced, _hooked, _retry;
-    int _active = -2;
+    int _active = -2, _scrollVersion;
 
     public LyricsView()
     {
@@ -42,10 +49,24 @@ public class LyricsView : Grid
         Children.Add(_status);
         Children.Add(_source);
 
-        IsVisibleChanged += (_, _) => { _active = -2; Hook(); };
+        IsVisibleChanged += (_, _) =>
+        {
+            _active = -2;
+            foreach (var row in _rows) { StopMotion(row); row.Style = int.MinValue; }
+            _scrollVersion++;
+            _scroll.BeginAnimation(TranslateTransform.YProperty, null);
+            Hook();
+        };
         SizeChanged += (_, _) => { _stack.Width = ActualWidth; _active = -2; Update(); }; // a Canvas doesn't size its children
-        Player.StateChanged += Hook;
-        Theme.Changed += Recolor;
+        Loaded += (_, _) => { Player.StateChanged += Hook; Theme.Changed += Recolor; Recolor(); Hook(); };
+        Unloaded += (_, _) =>
+        {
+            Player.StateChanged -= Hook; Theme.Changed -= Recolor; Unhook();
+            foreach (var row in _rows) StopMotion(row);
+            _scrollVersion++;
+            _scroll.BeginAnimation(TranslateTransform.YProperty, null);
+        };
+        Recolor();
         // plain (unsynced) lyrics scroll by hand
         MouseWheel += (_, e) =>
         {
@@ -71,7 +92,7 @@ public class LyricsView : Grid
         _status.Visibility = Visibility.Collapsed;
         _synced = lyric.Synced;
         _source.Text = lyric.Source + (lyric.Synced ? "" : " · not synced");
-        foreach (var line in lyric.Lines)
+        foreach (var line in lyric.Synced ? lyric.Lines.OrderBy(l => l.Start) : lyric.Lines.AsEnumerable())
         {
             var row = new Row { Line = line };
             var wrap = new WrapPanel();
@@ -109,10 +130,13 @@ public class LyricsView : Grid
 
     void Clear()
     {
+        Unhook();
+        foreach (var row in _rows) StopMotion(row);
         _rows.Clear();
         _stack.Children.Clear();
         _synced = false;
         _active = -2;
+        _scrollVersion++;
         _scroll.BeginAnimation(TranslateTransform.YProperty, null);
         _scroll.Y = 0;
     }
@@ -120,23 +144,41 @@ public class LyricsView : Grid
     // Per-frame updates only while visible and playing.
     void Hook()
     {
-        var want = IsVisible && _synced && Player.Playing;
+        var want = IsLoaded && IsVisible && _synced && Player.Playing;
         if (want != _hooked)
         {
             _hooked = want;
+            _frames.Reset();
             if (want) CompositionTarget.Rendering += OnFrame;
             else CompositionTarget.Rendering -= OnFrame;
         }
         Update();
     }
 
-    void OnFrame(object? sender, EventArgs e) => Update();
+    void Unhook()
+    {
+        if (_hooked) CompositionTarget.Rendering -= OnFrame;
+        _hooked = false;
+        _frames.Reset();
+    }
+
+    void OnFrame(object? sender, EventArgs e)
+    {
+        if (_frames.TryStep(((RenderingEventArgs)e).RenderingTime, 60, out _)) Update();
+    }
 
     void Update()
     {
         if (!_synced || _rows.Count == 0) return;
         var t = Player.Position.TotalSeconds + 0.1; // a hair early reads as "on time"
-        var idx = _rows.FindLastIndex(r => r.Line.Start <= t);
+        // Binary search does no per-frame closure allocation, including when seeking backwards.
+        int lo = 0, hi = _rows.Count - 1, idx = -1;
+        while (lo <= hi)
+        {
+            var mid = lo + (hi - lo) / 2;
+            if (_rows[mid].Line.Start <= t) { idx = mid; lo = mid + 1; }
+            else hi = mid - 1;
+        }
         if (idx != _active) { _active = idx; Restyle(); }
         if (idx < 0) return;
         foreach (var w in _rows[idx].Words)
@@ -162,29 +204,88 @@ public class LyricsView : Grid
             var r = _rows[i];
             if (i < _active) top += r.Box.ActualHeight; // layout heights, not transformed positions
             var dist = _active < 0 ? i + 1 : Math.Abs(i - _active);
+            var style = i < _active ? -Math.Min(4, dist) : Math.Min(4, dist);
+            if (r.Style == style)
+            {
+                if (dist > 3 && r.Animating) StopMotion(r);
+                continue;
+            }
+            var wasNearby = Math.Abs((long)r.Style) <= 3;
+            r.Style = style;
             if (i != _active) Light(r, i < _active ? 1 : 0);
             // past lines fade faster than upcoming ones, like a karaoke screen
             var opacity = dist == 0 ? 1 : i < _active ? (dist == 1 ? 0.35 : 0.12) : dist == 1 ? 0.55 : dist == 2 ? 0.32 : 0.16;
-            var duration = dist <= 5 ? d : TimeSpan.Zero;
-            r.Box.BeginAnimation(OpacityProperty, new DoubleAnimation(opacity, duration));
+            // Only the visible neighbourhood gets clocks. Distant rows settle directly.
+            var animate = dist <= 3 || wasNearby;
+            var oldOpacity = r.Box.Opacity;
+            var motion = ++r.MotionVersion;
+            r.Box.BeginAnimation(OpacityProperty, null);
+            r.Box.Opacity = opacity;
+            r.Animating = animate;
+            if (animate)
+            {
+                // Hold the settled opacity until the longest stagger ends, then detach
+                // all four clocks. A superseded transition cannot clear a newer one.
+                var fade = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
+                fade.KeyFrames.Add(new LinearDoubleKeyFrame(oldOpacity, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+                fade.KeyFrames.Add(new LinearDoubleKeyFrame(opacity, KeyTime.FromTimeSpan(d)));
+                fade.KeyFrames.Add(new LinearDoubleKeyFrame(opacity, KeyTime.FromTimeSpan(d + TimeSpan.FromMilliseconds(72))));
+                fade.Completed += (_, _) => { if (r.MotionVersion == motion) StopMotion(r); };
+                r.Box.BeginAnimation(OpacityProperty, fade);
+            }
             var s = r.Scale;
             var scale = dist == 0 ? 1.0 : 0.94;
-            s.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(scale, duration) { EasingFunction = Spring });
-            s.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(scale, duration) { EasingFunction = Spring });
-            r.Drift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(i > _active ? Math.Min(12, dist * 3) : 0, duration)
-                { BeginTime = TimeSpan.FromMilliseconds(dist <= 5 ? dist * 24 : 0), EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
-            r.Box.Effect = dist == 0 ? new DropShadowEffect { Color = Theme.A, BlurRadius = 18, ShadowDepth = 0, Opacity = 0.65, RenderingBias = RenderingBias.Performance }
-                : dist <= 3 ? new BlurEffect { Radius = dist * 1.2, RenderingBias = RenderingBias.Performance }
+            Move(s, ScaleTransform.ScaleXProperty, scale, animate, d, Spring);
+            Move(s, ScaleTransform.ScaleYProperty, scale, animate, d, Spring);
+            Move(r.Drift, TranslateTransform.YProperty, i > _active ? Math.Min(12, dist * 3) : 0, animate, d,
+                new CubicEase { EasingMode = EasingMode.EaseOut }, Math.Min(3, dist) * 24);
+            r.Box.Effect = dist == 0 ? _highlight
+                : dist <= 3 ? _blur[dist - 1]
                 : null;
         }
         // keep the sung line about a third of the way down, fully inside the view
         var lineHeight = _active >= 0 ? _rows[_active].Box.ActualHeight : 0;
         var y = Math.Min(ActualHeight * 0.3, ActualHeight - lineHeight - 8) - top;
-        _scroll.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(y, TimeSpan.FromMilliseconds(620)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+        var scrollVersion = ++_scrollVersion;
+        Move(_scroll, TranslateTransform.YProperty, y, true, TimeSpan.FromMilliseconds(620), new CubicEase { EasingMode = EasingMode.EaseOut },
+            completed: () => { if (_scrollVersion == scrollVersion) _scroll.BeginAnimation(TranslateTransform.YProperty, null); });
+    }
+
+    static void Move(Animatable target, DependencyProperty property, double value, bool animate, TimeSpan duration, IEasingFunction ease, int delay = 0, Action? completed = null)
+    {
+        var from = (double)target.GetValue(property);
+        target.BeginAnimation(property, null);
+        target.SetValue(property, value);
+        if (!animate || Math.Abs(from - value) <= .001) return;
+        AnimationTimeline animation;
+        if (delay == 0)
+            animation = new DoubleAnimation(from, value, duration) { EasingFunction = ease, FillBehavior = FillBehavior.Stop };
+        else
+        {
+            var stagger = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
+            stagger.KeyFrames.Add(new LinearDoubleKeyFrame(from, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+            stagger.KeyFrames.Add(new LinearDoubleKeyFrame(from, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(delay))));
+            stagger.KeyFrames.Add(new EasingDoubleKeyFrame(value, KeyTime.FromTimeSpan(duration + TimeSpan.FromMilliseconds(delay)), ease));
+            animation = stagger;
+        }
+        if (completed != null) animation.Completed += (_, _) => completed();
+        target.BeginAnimation(property, animation);
+    }
+
+    static void StopMotion(Row row)
+    {
+        row.MotionVersion++;
+        row.Animating = false;
+        row.Box.BeginAnimation(OpacityProperty, null);
+        row.Scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        row.Scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        row.Drift.BeginAnimation(TranslateTransform.YProperty, null);
     }
 
     void Recolor()
     {
+        _highlight = new DropShadowEffect { Color = Theme.A, BlurRadius = 18, ShadowDepth = 0, Opacity = .65, RenderingBias = RenderingBias.Performance };
+        _highlight.Freeze();
         var on = Theme.Fg;
         var off = Color.FromArgb(155, on.R, on.G, on.B);
         foreach (var r in _rows)
@@ -195,6 +296,7 @@ public class LyricsView : Grid
                 g[2].Color = g[3].Color = off;
                 g[3].Offset = 1;
             }
+        if (_active >= 0 && _active < _rows.Count) _rows[_active].Box.Effect = _highlight;
     }
 
     static void Light(Row r, double p) { foreach (var w in r.Words) Sweep(w, p); }

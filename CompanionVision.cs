@@ -1,6 +1,3 @@
-using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace Notch;
@@ -53,8 +50,8 @@ public static class CompanionVision
         _busy = true;
         try
         {
-            var raw = Cam.Snap()!;
-            var still = new TransformedBitmap(raw, new ScaleTransform(320.0 / raw.PixelWidth, 320.0 / raw.PixelWidth)); still.Freeze();
+            var still = Cam.Snap(320);
+            if (still == null) return;
             var result = await Detector.Observe(still);
             if (Enabled && result is VisionResult face) MainWindow.I.VisionReaction(face);
             else if (Enabled && result == null) await SetEnabled(false);

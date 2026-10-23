@@ -58,6 +58,14 @@ Native WPF, with no browser engine. The x64 installer includes the .NET runtime 
 
 ## Installation and updates
 
+### Animation and memory (1.3.1)
+
+Active notch rendering targets 60 Hz with elapsed-time pacing that retains the fractional deadline on high-refresh displays. WPF animation timelines target 60 fps; the notch's energy-saving loop retains its 30 Hz limit. Hidden mascot and lyric views stop their recurring animation work. Visualizer geometries, drag glow brushes and lyric effects are reused. Only the current lyric neighbourhood animates; completed clocks are detached.
+
+The lyric LRU holds at most 24 songs within a 180,000-character budget. Album images are decoded to at most 256 pixels on the longest edge. Filter/vision previews materialize independent 480/320 pixel images instead of cloning full camera frames. Original photo captures remain full-size. Camera stop releases its buffer and invalidates old queued callbacks.
+
+There is no periodic forced GC or working-set eviction. Task Manager can therefore show a higher resident baseline than a freshly evicted process, while bounded buffers and caches reduce retained data and repeated allocations. CI checks frame scheduling, animation visibility, long-song seeks and resource lifetime; it does not establish a physical 60 fps guarantee or a universal RAM number. A display below 60 Hz, GPU load, camera drivers and software rendering can lower observed FPS.
+
 Download `KiloSetup.exe` from Releases. The installer and uninstaller are native C++ executables drawn with Kilo's own Direct2D/DirectWrite UI. They install only to `%LOCALAPPDATA%\Programs\Kilo Notch`, register under HKCU, and preserve settings, tasks and photos. No administrator access is requested. Existing portable copies should be closed from their tray before installing.
 
 Kilo checks [the stable JSON feed](https://hamaddddds.github.io/Kilo-Notch/updates/stable.json) after launch and every six hours. An update makes the mascot react and appears in Settings/the tray. Downloading verifies the release's SHA-256 checksum before opening the custom installer. Installation starts when you choose **Update Kilo**. A failed upgrade restores the previous application files. This release is unsigned.

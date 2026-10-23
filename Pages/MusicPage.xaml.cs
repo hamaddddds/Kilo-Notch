@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using System.Windows.Data;
 
 namespace Notch;
 
@@ -12,7 +13,12 @@ public partial class MusicPage : UserControl
     static readonly IEasingFunction Pop = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 };
     static readonly IEasingFunction EaseOut = new CubicEase { EasingMode = EasingMode.EaseOut };
     readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromSeconds(1) };
-    readonly TextBlock _playGlyph = new() { RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform() };
+    static readonly Geometry PlayShape = Icon("M 5,2 L 18,10 5,18 Z");
+    static readonly Geometry PauseShape = Icon("M 6,3 L 6,17 M 14,3 L 14,17");
+    static Geometry Icon(string data) { var shape = Geometry.Parse(data); shape.Freeze(); return shape; }
+    readonly System.Windows.Shapes.Path _playGlyph = new() { Width = 20, Height = 20, StrokeThickness = 1.8,
+        StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round,
+        RenderTransformOrigin = new Point(.5, .5), RenderTransform = new ScaleTransform() };
     bool _seeking, _lyricsOn, _wasPlaying;
     string _lyricsFor = "", _shownSong = "";
     public static readonly DependencyProperty LyricsProgressProperty = DependencyProperty.Register(
@@ -24,6 +30,7 @@ public partial class MusicPage : UserControl
     {
         InitializeComponent();
         PlayBtn.Content = _playGlyph;
+        _playGlyph.SetBinding(System.Windows.Shapes.Shape.StrokeProperty, new Binding("Foreground") { Source = PlayBtn });
         Player.PropsChanged += OnProps;
         Player.StateChanged += OnState;
         _tick.Tick += (_, _) => UpdateTime();
@@ -60,7 +67,7 @@ public partial class MusicPage : UserControl
 
     void OnState()
     {
-        _playGlyph.Text = Player.Playing ? "" : "";
+        _playGlyph.Data = Player.Playing ? PauseShape : PlayShape;
         if (Player.Playing != _wasPlaying)
         {
             _wasPlaying = Player.Playing;

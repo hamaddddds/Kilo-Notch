@@ -8,11 +8,12 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>KiloNotch</AssemblyName>
     <Product>Kilo Notch</Product>
-    <Version>1.3.0</Version>
+    <Version>1.3.1</Version>
     <ApplicationIcon>Assets\KiloNotch.ico</ApplicationIcon>
 
-    <!-- light on memory: one GC thread, a heap that compacts sooner, no satellite resources -->
-    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <!-- Workstation background GC avoids blocking UI work for every full collection. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
@@ -23,7 +24,6 @@
   <ItemGroup>
     <Compile Remove="tests\**\*.cs" />
     <Page Remove="tests\**\*.xaml" />
-    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="7" />
   </ItemGroup>
 
 </Project>

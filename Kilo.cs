@@ -24,6 +24,7 @@ public class Kilo : Grid
     readonly FrameworkElement _tear;
     readonly TextBlock _z = new() { Text = "z", FontSize = 11, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, -16, 6), Opacity = 0, RenderTransform = new TranslateTransform() };
     Mood _mood = Mood.Normal;
+    bool _sadLoop, _sleepLoop;
 
     public Kilo()
     {
@@ -65,6 +66,9 @@ public class Kilo : Grid
         Children.Add(_eyes);
         Children.Add(_z);
         _z.SetResourceReference(TextBlock.ForegroundProperty, "Fg");
+        IsVisibleChanged += (_, _) => UpdateLoops();
+        Unloaded += (_, _) => UpdateLoops(stop: true);
+        Loaded += (_, _) => UpdateLoops();
     }
 
     /// The eyes' box, for working out where the cursor is relative to them.
@@ -86,14 +90,22 @@ public class Kilo : Grid
                 _swap.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.3, 1, TimeSpan.FromMilliseconds(260)) { EasingFunction = Pop });
             }
             _blink.BeginAnimation(ScaleTransform.ScaleYProperty, value == Mood.Drowsy ? new DoubleAnimation(0.3, TimeSpan.FromMilliseconds(700)) { EasingFunction = EaseOut } : null);
-            Loop(_tear, value == Mood.Sad, 6, 12, 1.6);
-            Loop(_z, value == Mood.Asleep, 4, -9, 2);
+            UpdateLoops();
         }
+    }
+
+    void UpdateLoops(bool stop = false)
+    {
+        var visible = !stop && IsVisible;
+        var sad = visible && _mood == Mood.Sad;
+        var asleep = visible && _mood == Mood.Asleep;
+        if (sad != _sadLoop) { _sadLoop = sad; Loop(_tear, sad, 6, 12, 1.6); }
+        if (asleep != _sleepLoop) { _sleepLoop = asleep; Loop(_z, asleep, 4, -9, 2); }
     }
 
     public void Blink(bool twice = false)
     {
-        if (_mood != Mood.Normal) return;
+        if (_mood != Mood.Normal || !IsVisible) return;
         var a = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
         a.KeyFrames.Add(new EasingDoubleKeyFrame(0.1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(80)), EaseOut));
         a.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(190)), EaseOut));
@@ -105,7 +117,7 @@ public class Kilo : Grid
         _blink.BeginAnimation(ScaleTransform.ScaleYProperty, a);
     }
 
-    // a drifting, fading element (tear, z) that repeats while the mood lasts, at a low frame rate
+    // Repeating clocks exist only while this face is visible; hidden pages keep their mood.
     static void Loop(FrameworkElement e, bool on, double from, double to, double seconds)
     {
         var move = (TranslateTransform)e.RenderTransform;
@@ -121,8 +133,8 @@ public class Kilo : Grid
         var o = new DoubleAnimationUsingKeyFrames { RepeatBehavior = RepeatBehavior.Forever, Duration = d };
         o.KeyFrames.Add(new LinearDoubleKeyFrame(1, KeyTime.FromPercent(0.2)));
         o.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(1)));
-        Timeline.SetDesiredFrameRate(y, 24);
-        Timeline.SetDesiredFrameRate(o, 24);
+        Timeline.SetDesiredFrameRate(y, 60);
+        Timeline.SetDesiredFrameRate(o, 60);
         move.BeginAnimation(TranslateTransform.YProperty, y);
         e.BeginAnimation(OpacityProperty, o);
     }

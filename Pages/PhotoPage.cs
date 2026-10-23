@@ -279,8 +279,8 @@ public class PhotoPage : UserControl
                 _live.Source = _cam.Frame;
                 if (_vision.IsChecked != true || _busy || !_detector.Ready) return;
             }
-            var raw = _cam.Snap()!;
-            var still = new TransformedBitmap(raw, new ScaleTransform(480.0 / raw.PixelWidth, 480.0 / raw.PixelWidth)); still.Freeze();
+            var still = _cam.Snap(480);
+            if (still == null) return;
             if (filter != 0)
             {
                 var preview = await Task.Run(() => PhotoFilters.Apply(still, filter));

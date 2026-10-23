@@ -44,7 +44,7 @@ public partial class MainWindow : Window
     int _beats;
     Size _base = RestingSize;
     bool _looping;
-    TimeSpan _lastFrame;
+    readonly FramePacer _framePacer = new();
 
     View _view = View.Resting;
     FrameworkElement? _shown;
@@ -68,7 +68,6 @@ public partial class MainWindow : Window
     readonly DispatcherTimer _peekEnd = new() { Interval = TimeSpan.FromSeconds(4) };
     readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromSeconds(3) };
     readonly DispatcherTimer _moodEnd = new();
-    readonly DispatcherTimer _trim = new() { Interval = TimeSpan.FromSeconds(45) }; // while collapsed, give memory back this often
 
     public MainWindow()
     {
@@ -99,7 +98,6 @@ public partial class MainWindow : Window
         _peekEnd.Tick += (_, _) => { _peekEnd.Stop(); if (!CursorInNotch()) Collapse(); };
         _blink.Tick += (_, _) => Blink();
         _moodEnd.Tick += (_, _) => { _moodEnd.Stop(); UpdateFace(); };
-        _trim.Tick += (_, _) => { if (_view != View.Open) Trim(heapToo: !_looping); };
 
         Theme.Changed += ApplyGlow;
         Player.StateChanged += () =>
@@ -162,17 +160,14 @@ public partial class MainWindow : Window
     {
         if (_looping) return;
         _looping = true;
-        _lastFrame = TimeSpan.Zero;
+        _framePacer.Reset();
         CompositionTarget.Rendering += Frame;
     }
 
     void Frame(object? sender, EventArgs e)
     {
         var now = ((RenderingEventArgs)e).RenderingTime;
-        if (_saving && _lastFrame != TimeSpan.Zero && (now - _lastFrame).TotalMilliseconds < 32) return;
-        if (now == _lastFrame) return; // Rendering can fire more than once per frame
-        var dt = _lastFrame == TimeSpan.Zero ? 1 / 60.0 : Math.Min((now - _lastFrame).TotalSeconds, 1 / 20.0);
-        _lastFrame = now;
+        if (!_framePacer.TryStep(now, _saving ? 30 : 60, out var dt)) return;
         var busy = false;
 
         if (_dragInside || !_hov.Settled || _dropT >= 0)
@@ -211,9 +206,12 @@ public partial class MainWindow : Window
             _level = Math.Max(Meter.Peak(), _level * Math.Pow(0.86, dt * 30)); // fast attack, slow decay
             _phase += dt * 6.5;
             var level = Math.Min(1, 0.3 + _level * 1.5);
-            foreach (var wave in new[] { ClosedWave, HeadWave, Music.Viz })
+            UpdateWave(ClosedWave);
+            UpdateWave(HeadWave);
+            UpdateWave(Music.Viz);
+            void UpdateWave(Wave wave)
             {
-                if (!wave.IsVisible) continue;
+                if (!wave.IsVisible) return;
                 wave.Phase = _phase;
                 wave.Level = level;
                 wave.InvalidateVisual();
@@ -362,28 +360,14 @@ public partial class MainWindow : Window
             Face.Gaze.X = _gx.Value;
         }
         var v = rest ? View.Resting : View.Closed;
-        if (v != _view || force) { Morph(rest ? RestingSize : ClosedSize, v); _trim.Stop(); _trim.Start(); }
+        if (v != _view || force) Morph(rest ? RestingSize : ClosedSize, v);
         RefreshClosed();
-    }
-
-    // Lightweight mode: while collapsed, hand idle pages back to Windows. Measured: ~119 MB → ~18 MB in
-    // Task Manager, settling around 35 MB even with the visualizer running; pages fault back in on use.
-    // The heap is compacted only when nothing animates, so a blocking GC never costs a frame.
-    static void Trim(bool heapToo)
-    {
-        if (heapToo)
-        {
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
-            GC.WaitForPendingFinalizers();
-        }
-        SetProcessWorkingSetSize(System.Diagnostics.Process.GetCurrentProcess().Handle, -1, -1);
     }
 
     void Open()
     {
         _leave.Stop();
         _peekEnd.Stop();
-        _trim.Stop();
         if (DateTime.Now - _lastOpen > TimeSpan.FromMinutes(20)) React(Mood.Happy, 3); // missed you
         _lastOpen = DateTime.Now;
         var size = _lyrics ? LyricsSize : _page == 5 ? PhotoSize : OpenSize;
@@ -889,5 +873,4 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT p);
     [DllImport("user32.dll")] static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
     [DllImport("shell32.dll")] static extern int SHQueryUserNotificationState(out int state);
-    [DllImport("kernel32.dll")] static extern bool SetProcessWorkingSetSize(IntPtr process, IntPtr min, IntPtr max);
 }

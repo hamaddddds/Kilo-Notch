@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -16,13 +17,18 @@ public static class Player
     static TimeSpan _pos, _end;
     static DateTimeOffset _at, _stamp;
     static int _version;
+    sealed class PaletteCache
+    {
+        public (Color, Color)? Light, Dark;
+    }
+    static readonly ConditionalWeakTable<BitmapSource, PaletteCache> Palettes = new();
 
     public static string Title { get; private set; } = "";
     public static string Artist { get; private set; } = "";
     public static BitmapSource? Art { get; private set; }
 
     /// The song's two colors: the cover's palette when album colors are on, otherwise the theme.
-    /// Worked out on demand, since light/dark changes the lightness.
+    /// Cached per frozen cover and light/dark theme; old covers can be collected.
     public static (Color A, Color B) Vibe => Store.D.Settings.AlbumGlow && Art != null ? Palette(Art) : (Theme.A, Theme.B);
     public static bool Playing { get; private set; }
     public static bool HasSession => _s != null && Title != "";
@@ -83,13 +89,8 @@ public static class Player
                 try
                 {
                     using var stream = (await p.Thumbnail.OpenReadAsync()).AsStreamForRead();
-                    var bmp = new BitmapImage();
-                    bmp.BeginInit();
-                    bmp.CacheOption = BitmapCacheOption.OnLoad;
-                    bmp.StreamSource = stream;
-                    bmp.EndInit();
-                    bmp.Freeze();
-                    art = bmp;
+                    if (v != _version) return;
+                    art = DecodeArt(stream);
                 }
                 catch (Exception) { } // odd thumbnail format: show the song without art
             }
@@ -100,6 +101,36 @@ public static class Player
             PropsChanged?.Invoke();
         }
         catch (Exception) { } // session closed mid-read; the next event refreshes
+    }
+
+    internal static BitmapSource DecodeArt(Stream stream)
+    {
+        // Read dimensions before decoding pixels, so portrait artwork is bounded too.
+        // Media thumbnails are seekable; support other streams without retaining them.
+        if (!stream.CanSeek)
+        {
+            using var seekable = new MemoryStream();
+            stream.CopyTo(seekable);
+            seekable.Position = 0;
+            return DecodeArt(seekable);
+        }
+        long start = stream.Position;
+        var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.None);
+        var frame = decoder.Frames[0];
+        int width = frame.PixelWidth, height = frame.PixelHeight;
+        stream.Position = start;
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        if (Math.Max(width, height) > 256)
+        {
+            if (width >= height) bitmap.DecodePixelWidth = 256;
+            else bitmap.DecodePixelHeight = 256;
+        }
+        bitmap.StreamSource = stream;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
     }
 
     static void LoadState()
@@ -151,6 +182,22 @@ public static class Player
     // hue buckets instead; the runner-up must be a different hue or the gradient would be flat.
     public static (Color, Color) Palette(BitmapSource src)
     {
+        bool light = Store.D.Settings.Light;
+        // Mutable sources may change between calls; caching those would leave stale colors.
+        if (!src.IsFrozen) return ComputePalette(src, light);
+        var cached = Palettes.GetValue(src, _ => new PaletteCache());
+        lock (cached)
+        {
+            if ((light ? cached.Light : cached.Dark) is { } colors) return colors;
+            var result = ComputePalette(src, light);
+            if (light) cached.Light = result;
+            else cached.Dark = result;
+            return result;
+        }
+    }
+
+    static (Color, Color) ComputePalette(BitmapSource src, bool light)
+    {
         var small = new TransformedBitmap(new FormatConvertedBitmap(src, PixelFormats.Bgra32, null, 0),
             new ScaleTransform(24.0 / src.PixelWidth, 24.0 / src.PixelHeight));
         var px = new byte[small.PixelWidth * small.PixelHeight * 4];
@@ -174,7 +221,6 @@ public static class Player
         double Score(int k) => weight[k] + 0.5 * (weight[(k + 1) % bins] + weight[(k + bins - 1) % bins]);
         var first = Enumerable.Range(0, bins).MaxBy(Score);
         var second = Enumerable.Range(0, bins).Where(k => Math.Min((k - first + bins) % bins, (first - k + bins) % bins) >= 3).MaxBy(Score);
-        var light = Store.D.Settings.Light;
         Color Pick(int k)
         {
             var hue = Math.Atan2(sum[k].y, sum[k].x) * 180 / Math.PI;

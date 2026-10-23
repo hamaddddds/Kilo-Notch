@@ -22,13 +22,18 @@ sealed class Camera(int maxWidth = 1280, int minimumFrameMilliseconds = 0)
 {
     MediaCapture? _cap;
     MediaFrameReader? _reader;
-    byte[] _px = Array.Empty<byte>();
-    int _pending;
+    sealed class CaptureFrames
+    {
+        public byte[] Pixels = Array.Empty<byte>();
+        public int Pending;
+        public long LastFrameAt;
+    }
+    readonly object _frameGate = new();
+    CaptureFrames? _frames;
     readonly SemaphoreSlim _lifecycle = new(1);
-    long _lastFrameAt;
 
     public WriteableBitmap? Frame { get; private set; }
-    public bool On => _cap != null;
+    public bool On { get { lock (_frameGate) return _cap != null; } }
     public event Action? NewFrame; // the bitmap was (re)created: point the preview at it
 
     // Set up off the UI thread; MediaCapture is agile and frames arrive on worker threads anyway.
@@ -62,8 +67,12 @@ sealed class Camera(int maxWidth = 1280, int minimumFrameMilliseconds = 0)
             reader.AcquisitionMode = MediaFrameReaderAcquisitionMode.Realtime;
             reader.FrameArrived += Arrived;
             if (await reader.StartAsync() != MediaFrameReaderStartStatus.Success) throw new InvalidOperationException("camera busy");
-            _cap = cap;
-            _reader = reader;
+            lock (_frameGate)
+            {
+                _cap = cap;
+                _reader = reader;
+                _frames = new CaptureFrames();
+            }
         }
         catch (Exception)
         {
@@ -75,39 +84,47 @@ sealed class Camera(int maxWidth = 1280, int minimumFrameMilliseconds = 0)
 
     void Arrived(MediaFrameReader r, MediaFrameArrivedEventArgs e)
     {
-        if (r != _reader || !On) return;
-        var now = Environment.TickCount64;
-        if (now - Interlocked.Read(ref _lastFrameAt) < minimumFrameMilliseconds) return;
-        Interlocked.Exchange(ref _lastFrameAt, now);
-        if (Interlocked.CompareExchange(ref _pending, 1, 0) != 0) return; // the screen hasn't caught up: skip this one
-        try
+        lock (_frameGate)
         {
-            using var frame = r.TryAcquireLatestFrame();
-            var sb = frame?.VideoMediaFrame?.SoftwareBitmap;
-            if (sb == null) { Volatile.Write(ref _pending, 0); return; }
-            using var converted = sb.BitmapPixelFormat == BitmapPixelFormat.Bgra8 ? null : SoftwareBitmap.Convert(sb, BitmapPixelFormat.Bgra8);
-            var b = converted ?? sb;
-            int w = b.PixelWidth, h = b.PixelHeight;
-            if (_px.Length != w * h * 4) _px = new byte[w * h * 4];
-            b.CopyToBuffer(_px.AsBuffer());
-            Application.Current.Dispatcher.InvokeAsync(() =>
+            var state = _frames;
+            if (r != _reader || state == null) return;
+            var now = Environment.TickCount64;
+            if (now - state.LastFrameAt < minimumFrameMilliseconds || state.Pending != 0) return;
+            state.LastFrameAt = now;
+            state.Pending = 1; // keep one buffer until its UI upload finishes
+            try
             {
-                try
+                using var frame = r.TryAcquireLatestFrame();
+                var sb = frame?.VideoMediaFrame?.SoftwareBitmap;
+                if (sb == null) { state.Pending = 0; return; }
+                using var converted = sb.BitmapPixelFormat == BitmapPixelFormat.Bgra8 ? null : SoftwareBitmap.Convert(sb, BitmapPixelFormat.Bgra8);
+                var b = converted ?? sb;
+                int w = b.PixelWidth, h = b.PixelHeight;
+                if (state.Pixels.Length != w * h * 4) state.Pixels = new byte[w * h * 4];
+                b.CopyToBuffer(state.Pixels.AsBuffer());
+                Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    if (r != _reader || !On) return;
-                    var created = false;
-                    if (Frame == null || Frame.PixelWidth != w || Frame.PixelHeight != h)
+                    lock (_frameGate)
                     {
-                        Frame = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgr32, null);
-                        created = true;
+                        try
+                        {
+                            // An old callback must never upload into a restarted capture.
+                            if (!ReferenceEquals(state, _frames)) return;
+                            var created = false;
+                            if (Frame == null || Frame.PixelWidth != w || Frame.PixelHeight != h)
+                            {
+                                Frame = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgr32, null);
+                                created = true;
+                            }
+                            Frame.WritePixels(new Int32Rect(0, 0, w, h), state.Pixels, w * 4, 0);
+                            if (created) NewFrame?.Invoke();
+                        }
+                        finally { state.Pending = 0; }
                     }
-                    Frame.WritePixels(new Int32Rect(0, 0, w, h), _px, w * 4, 0);
-                    if (created) NewFrame?.Invoke();
-                }
-                finally { Volatile.Write(ref _pending, 0); }
-            }, DispatcherPriority.Render);
+                }, DispatcherPriority.Render);
+            }
+            catch (Exception) { state.Pending = 0; }
         }
-        catch (Exception) { Volatile.Write(ref _pending, 0); }
     }
 
     /// A still of what the preview shows right now.
@@ -119,15 +136,41 @@ sealed class Camera(int maxWidth = 1280, int minimumFrameMilliseconds = 0)
         return still;
     }
 
+    /// A small, independent still for filters/vision, without a full-resolution clone.
+    public BitmapSource? Snap(int maximumSize) => Frame is { } frame ? Snapshot(frame, maximumSize) : null;
+
+    internal static BitmapSource Snapshot(BitmapSource source, int maximumSize)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumSize);
+        var scale = Math.Min(1.0, (double)maximumSize / Math.Max(source.PixelWidth, source.PixelHeight));
+        int width = Math.Max(1, (int)Math.Round(source.PixelWidth * scale));
+        int height = Math.Max(1, (int)Math.Round(source.PixelHeight * scale));
+        var visual = new DrawingVisual();
+        RenderOptions.SetBitmapScalingMode(visual, BitmapScalingMode.LowQuality);
+        using (var dc = visual.RenderOpen()) dc.DrawImage(source, new Rect(0, 0, width, height));
+        var still = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        still.Render(visual);
+        still.Freeze();
+        return still;
+    }
+
     public async Task Stop()
     {
         await _lifecycle.WaitAsync();
         try
         {
-            var (r, c) = (_reader, _cap);
-            _reader = null;
-            _cap = null;
-            Frame = null;
+            MediaFrameReader? r;
+            MediaCapture? c;
+            lock (_frameGate)
+            {
+                (r, c) = (_reader, _cap);
+                _reader = null;
+                _cap = null;
+                Frame = null;
+                // Pending UI delegates retain only this tiny state, not the camera buffer.
+                if (_frames != null) _frames.Pixels = Array.Empty<byte>();
+                _frames = null;
+            }
             if (r != null)
             {
                 r.FrameArrived -= Arrived;

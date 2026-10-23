@@ -1,10 +1,12 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Animation;
 
 namespace Notch;
 
 public partial class App : Application
 {
+    static App() => Timeline.DesiredFrameRateProperty.OverrideMetadata(typeof(Timeline), new FrameworkPropertyMetadata(60));
     Mutex? _single;
     EventWaitHandle? _shutdownSignal;
     RegisteredWaitHandle? _shutdownWait;

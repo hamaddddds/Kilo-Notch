@@ -51,6 +51,6 @@ $hash = (Get-FileHash artifacts/release/KiloSetup.exe -Algorithm SHA256).Hash.To
     version = $version
     url = "https://github.com/hamaddddds/Kilo-Notch/releases/download/v$version/KiloSetup.exe"
     sha256 = $hash
-    notes = 'Smoother lyrics on the right, a better shelf and reminders, photo filters and reprints, more Kilo reactions, and a custom installer with verified updates.'
+    notes = '60 Hz animation pacing, lighter lyric transitions and bounded caches, reusable visualizers, and smaller camera preview and album-art buffers. Custom installer and verified updates included.'
 } | ConvertTo-Json | Set-Content artifacts/release/stable.json -Encoding utf8NoBOM
 "$hash  KiloSetup.exe" | Set-Content artifacts/release/SHA256SUMS.txt -Encoding ascii

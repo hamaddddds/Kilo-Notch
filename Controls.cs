@@ -49,46 +49,57 @@ public class DropGlow : FrameworkElement
     public double Hover, Rise, Wave = -1, X; // Wave: 0..1 progress of the drop wave, -1 = none
     public Color A, B;
 
-    public DropGlow() => IsHitTestVisible = false;
+    readonly LinearGradientBrush _fade = new() { StartPoint = new Point(0, 1), EndPoint = new Point(0, 0),
+        GradientStops = { new(Colors.Black, 0), new(Color.FromArgb(140, 0, 0, 0), .42), new(Color.FromArgb(20, 0, 0, 0), .78), new(Colors.Transparent, 1) } };
+    readonly LinearGradientBrush _ambient = new(Colors.Transparent, Colors.Transparent, 0);
+    readonly RadialGradientBrush _pool = Radial();
+    readonly RadialGradientBrush _wave = Radial();
+
+    public DropGlow() { IsHitTestVisible = false; _fade.Freeze(); }
+
+    static RadialGradientBrush Radial() => new() { MappingMode = BrushMappingMode.Absolute,
+        GradientStops = { new(Colors.Transparent, 0), new(Colors.Transparent, .55), new(Colors.Transparent, 1) } };
 
     protected override void OnRender(DrawingContext dc)
     {
         double ambient = 0.26 * Hover + 0.34 * Rise, pool = 0.42 * Hover + 0.3 * Rise;
         if ((ambient < 0.004 && pool < 0.004 && Wave < 0) || Body.Width <= 0) return;
         var b = Body;
-        var fade = new LinearGradientBrush { StartPoint = new Point(0, 1), EndPoint = new Point(0, 0) };
-        fade.GradientStops.Add(new GradientStop(Colors.Black, 0));
-        fade.GradientStops.Add(new GradientStop(Color.FromArgb(140, 0, 0, 0), 0.42));
-        fade.GradientStops.Add(new GradientStop(Color.FromArgb(20, 0, 0, 0), 0.78));
-        fade.GradientStops.Add(new GradientStop(Colors.Transparent, 1));
-        dc.PushOpacityMask(fade);
+        dc.PushOpacityMask(_fade);
         dc.DrawRectangle(Brushes.Transparent, null, b); // pins the mask to the body's box
 
         if (ambient > 0.004)
-            dc.DrawRectangle(new LinearGradientBrush(Alpha(A, ambient), Alpha(B, ambient), 0), null, b);
+        {
+            _ambient.GradientStops[0].Color = Alpha(A, ambient);
+            _ambient.GradientStops[1].Color = Alpha(B, ambient);
+            dc.DrawRectangle(_ambient, null, b);
+        }
 
         var t = Math.Clamp((X - b.X) / b.Width, 0, 1);
         var c = Mix(A, B, t);
         if (pool > 0.004)
         {
             var r = b.Width * (0.4 + 0.15 * Rise);
-            var g = new RadialGradientBrush { MappingMode = BrushMappingMode.Absolute, Center = new Point(X, b.Bottom + 18), GradientOrigin = new Point(X, b.Bottom + 18), RadiusX = r, RadiusY = r };
-            g.GradientStops.Add(new GradientStop(Alpha(Mix(c, Colors.White, 0.2), pool), 0));
-            g.GradientStops.Add(new GradientStop(Alpha(c, pool * 0.45), 0.55));
-            g.GradientStops.Add(new GradientStop(Alpha(c, 0), 1));
-            dc.DrawRectangle(g, null, b);
+            _pool.Center = _pool.GradientOrigin = new Point(X, b.Bottom + 18);
+            _pool.RadiusX = _pool.RadiusY = r;
+            _pool.GradientStops[0].Color = Alpha(Mix(c, Colors.White, .2), pool);
+            _pool.GradientStops[1].Color = Alpha(c, pool * .45);
+            _pool.GradientStops[2].Color = Alpha(c, 0);
+            dc.DrawRectangle(_pool, null, b);
         }
 
         if (Wave >= 0 && Wave < 1)
         {
             var q = 1 - Math.Pow(1 - Wave, 3); // races out, then eases
             double radius = 24 + b.Width * q, band = 30, a = 0.24 * (1 - q), outer = radius + band;
-            var g = new RadialGradientBrush { MappingMode = BrushMappingMode.Absolute, Center = new Point(X, b.Bottom - 14), GradientOrigin = new Point(X, b.Bottom - 14), RadiusX = outer, RadiusY = outer };
+            _wave.Center = _wave.GradientOrigin = new Point(X, b.Bottom - 14);
+            _wave.RadiusX = _wave.RadiusY = outer;
             var light = Mix(c, Colors.White, 0.7);
-            g.GradientStops.Add(new GradientStop(Alpha(light, 0), Math.Max(0, radius - band) / outer));
-            g.GradientStops.Add(new GradientStop(Alpha(light, a), radius / outer));
-            g.GradientStops.Add(new GradientStop(Alpha(light, 0), 1));
-            dc.DrawRectangle(g, null, b);
+            _wave.GradientStops[0].Color = _wave.GradientStops[2].Color = Alpha(light, 0);
+            _wave.GradientStops[1].Color = Alpha(light, a);
+            _wave.GradientStops[0].Offset = Math.Max(0, radius - band) / outer;
+            _wave.GradientStops[1].Offset = radius / outer;
+            dc.DrawRectangle(_wave, null, b);
         }
         dc.Pop();
     }
@@ -136,6 +147,19 @@ public class Ring : FrameworkElement
 /// Little equalizer bars. Static as an icon; the owner bumps Phase/Level to make it dance.
 public class Wave : FrameworkElement
 {
+    const int Bars = 5;
+    readonly GeometryGroup _geometry = new();
+    readonly RectangleGeometry[] _bars = new RectangleGeometry[Bars];
+
+    public Wave()
+    {
+        for (var i = 0; i < Bars; i++)
+        {
+            _bars[i] = new RectangleGeometry();
+            _geometry.Children.Add(_bars[i]);
+        }
+    }
+
     public static readonly DependencyProperty LevelProperty = DependencyProperty.Register(nameof(Level), typeof(double), typeof(Wave),
         new FrameworkPropertyMetadata(0.7, FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty BrushProperty = DependencyProperty.Register(nameof(Brush), typeof(Brush), typeof(Wave),
@@ -147,16 +171,17 @@ public class Wave : FrameworkElement
 
     protected override void OnRender(DrawingContext dc)
     {
-        const int bars = 5;
-        var w = ActualWidth / (bars * 2 - 1);
-        // one geometry for all bars, so a gradient brush runs across the whole wave
-        var g = new GeometryGroup();
-        for (int i = 0; i < bars; i++)
+        if (ActualWidth <= 0 || ActualHeight <= 0) return;
+        var w = ActualWidth / (Bars * 2 - 1);
+        // Reuse the five shapes for this control's lifetime; the shared group keeps
+        // the gradient continuous across all bars without per-frame geometry churn.
+        for (int i = 0; i < Bars; i++)
         {
             var k = 0.3 + 0.7 * Math.Abs(Math.Sin(Phase * (0.9 + i * 0.23) + i * 1.9));
-            var h = Math.Clamp(ActualHeight * Level * k, w, ActualHeight);
-            g.Children.Add(new RectangleGeometry(new Rect(i * 2 * w, (ActualHeight - h) / 2, w, h), w / 2, w / 2));
+            var h = Math.Clamp(ActualHeight * Level * k, Math.Min(w, ActualHeight), ActualHeight);
+            _bars[i].Rect = new Rect(i * 2 * w, (ActualHeight - h) / 2, w, h);
+            _bars[i].RadiusX = _bars[i].RadiusY = w / 2;
         }
-        dc.DrawGeometry(Brush, null, g);
+        dc.DrawGeometry(Brush, null, _geometry);
     }
 }

@@ -16,6 +16,8 @@ static class Program
     {
         try
         {
+            if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") != "true")
+                throw new InvalidOperationException("Desktop tests run only in GitHub Actions.");
             var app = new App(); app.InitializeComponent();
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
             // Change only the in-memory fixture. Never call Store.Save or open a camera.
@@ -25,6 +27,9 @@ static class Program
             Store.D.Todos.Clear(); Store.D.Shelf.Clear();
             Theme.Apply();
             Directory.CreateDirectory(Output);
+            PerformanceChecks.Run(Check);
+            LyricCacheChecks.Run(Check);
+            LyricMotionChecks.Run(Check);
             var now = new DateTime(2026, 10, 22, 23, 50, 0);
             var update = new UpdateManifest("1.4.0", "https://github.com/hamaddddds/Kilo-Notch/releases/download/v1.4.0/KiloSetup.exe", new string('a', 64), "New things");
             Check(UpdateCenter.Valid(update), "versioned GitHub update manifest accepted");
